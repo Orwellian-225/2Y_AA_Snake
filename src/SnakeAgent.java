@@ -1,8 +1,5 @@
 import za.ac.wits.snake.DevelopmentAgent;
 
-import java.io.FileWriter;
-import java.io.IOException;
-import java.io.Writer;
 import java.util.*;
 
 public class SnakeAgent extends DevelopmentAgent {
@@ -55,9 +52,11 @@ public class SnakeAgent extends DevelopmentAgent {
             barriers.clear();
             String[] input = new String[12];
 
-            for( int i = 0; i < 12; i++) {
-                input[i] = in.nextLine();
-            }
+                for (int i = 0; i < 12; i++) {
+                    input[i] = in.nextLine();
+
+                    if(input[i].contains("Game Over")) { writer.close(); break; }
+                }
 
             apple.update(input[0].replace(" ", ","));
 
@@ -89,7 +88,7 @@ public class SnakeAgent extends DevelopmentAgent {
             //======================================================================================================
 
             //A* ===================================================================================================
-
+            //Tuple test = new Tuple(apple.x - 1, apple.y-2);
             Tuple next = a_star(snake_me);
 
             if(next == null) { moveStraight(); }
@@ -106,9 +105,9 @@ public class SnakeAgent extends DevelopmentAgent {
     }
 
     private void moveNorth() { System.out.println(0); }
-    private void moveEast() { System.out.println(1); }
-    private void moveSouth() { System.out.println(2); }
-    private void moveWest() { System.out.println(3); }
+    private void moveEast() { System.out.println(3); }
+    private void moveSouth() { System.out.println(1); }
+    private void moveWest() { System.out.println(2); }
 
     private void moveStraight() { System.out.println(5); }
     //private void moveLeft() { System.out.println(4); }
@@ -163,33 +162,6 @@ public class SnakeAgent extends DevelopmentAgent {
                 barriers.add(new Tuple(p1.x, i));
             }
 
-        }
-    }
-
-    private boolean tuple_is_in(Tuple t, ArrayList<Tuple> arr) {
-        for(Tuple arr_t : arr) { if(arr_t.y == t.y && arr_t.x == t.x) { return true; } }
-        return false;
-    }
-
-    private void logQueue(PriorityQueue<Vertex> q) {
-        try {
-            Writer writer = new FileWriter("queue.txt");
-
-            for(Vertex top : q) {
-                String log = "";
-                log += "p = { " + top.point.x + " , " + top.point.y + " }, ";
-                log += "f = " + top.f + " , ";
-                log += "h = " + top.h + " , ";
-                log += "g = " + top.g + " , ";
-                log += "\n";
-
-                writer.append(log);
-            }
-
-            writer.close();
-
-        } catch (IOException ioe) {
-            ioe.printStackTrace();
         }
     }
 

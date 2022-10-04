@@ -43,4 +43,8 @@ public class Tuple {
     public int hashCode() {
         return Objects.hash(x, y);
     }
+
+    public String toString() {
+        return Integer.toString(x) + "," + Integer.toString(y);
+    }
 }
