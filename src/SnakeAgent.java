@@ -5,15 +5,7 @@ import java.io.*;
 
 public class SnakeAgent extends DevelopmentAgent {
 
-    //Scaling coefficients for cost evaluation
-    final private double mew_snake = 1;
-    final private double mew_zombie = 0;
-    final private double mew_barrier = 0;
     final private double mew_apple = 1;
-
-    private Tuple[] snakes;
-    private ArrayList<Tuple> barriers = new ArrayList<>();
-    private Tuple[] zombies;
     private Tuple snake_me = new Tuple();
     private Tuple apple = new Tuple();
 
@@ -37,89 +29,84 @@ public class SnakeAgent extends DevelopmentAgent {
         final int snake_count = Integer.parseInt(gameSplit[0]);
         final int zombie_count = 6;
 
-        snakes = new Tuple[snake_count];
-        zombies = new Tuple[zombie_count];
-
-        for (int i = 0; i < snake_count; i++) {
-            snakes[i] = new Tuple();
-        }
-
-        for (int i = 0; i < zombie_count; i++) {
-            zombies[i] = new Tuple();
-        }
+        int[][] board = new int[board_height][board_width];
 
         while(true) {
-            long start_time = System.nanoTime();
-            //Parsing Input ========================================================================================
-            barriers.clear();
-            String[] input = new String[12];
+            try {
+                //Parsing Input ========================================================================================
+                String[] input = new String[12];
 
-                for (int i = 0; i < 12; i++) {
+                for (int i = 0; i < 7 + snake_count; i++) {
                     input[i] = in.nextLine();
                 }
 
-            apple.update(input[0].replace(" ", ","));
+                apple.update(input[0].replace(" ", ","));
+                board[apple.x][apple.x] = 9;
 
-            for(int i = 0; i < zombie_count; i++) {
-                String[] zombie = input[i + 1].split(" ");
+                for (int i = 0; i < zombie_count; i++) {
+                    String[] zombie = input[i + 1].split(" ");
 
-                zombies[i].update(zombie[0]);
+                    for (int j = 0; j < zombie.length - 1; j++) {
+                        String[] zj = zombie[j].split(",");
+                        String[] zj1 = zombie[j + 1].split(",");
+                        int zj_x = Integer.parseInt(zj[0]), zj_y = Integer.parseInt(zj[1]);
+                        int zj1_x = Integer.parseInt(zj1[0]), zj1_y = Integer.parseInt(zj1[1]);
+                        mark_barriers(board, zj_x, zj_y, zj1_x, zj1_y);
 
-                for(int j = 0; j < zombie.length - 1; j++) {
-                    mark_barriers(new Tuple(zombie[j]), new Tuple(zombie[j + 1]));
+                        String[] vals = zombie[0].split(",");
+                        board[Integer.parseInt(vals[0])][Integer.parseInt(vals[1])] = 2;
+                    }
                 }
-            }
 
-            int me_idx = Integer.parseInt(input[7]);
+                int me_idx = Integer.parseInt(input[7]);
 
-            for (int i = 0; i < snake_count; i++) {
-                String[] snake = input[i + 8].split(" ");
+                for (int i = 0; i < snake_count; i++) {
+                    String[] snake = input[i + 8].split(" ");
 
-                if(snake[0].equals("dead")) { continue; }
+                    if (snake[0].equals("dead")) {
+                        continue;
+                    }
 
-                snakes[i].update(snake[3]);
+                    if (i == me_idx) {
+                        snake_me = new Tuple(snake[3]);
+                    }
 
-                for(int j = 3; j < snake.length - 1; j++) {
-                    mark_barriers(new Tuple(snake[j]), new Tuple(snake[j + 1]));
+                    for (int j = 3; j < snake.length - 1; j++) {
+                        String[] sj = snake[j].split(",");
+                        String[] sj1 = snake[j + 1].split(",");
+                        int sj_x = Integer.parseInt(sj[0]), sj_y = Integer.parseInt(sj[1]);
+                        int sj1_x = Integer.parseInt(sj1[0]), sj1_y = Integer.parseInt(sj1[1]);
+                        mark_barriers(board, sj_x, sj_y, sj1_x, sj1_y);
+                    }
+
+                    String[] snake_head = snake[3].split(",");
+                    board[Integer.parseInt(snake_head[0])][Integer.parseInt(snake_head[1])] = 3;
                 }
-            }
+                //======================================================================================================
 
-            snake_me = snakes[me_idx];
-            //======================================================================================================
+                //A* ===================================================================================================
+                Tuple next;
+                Tuple Test = new Tuple(apple.x - 1, apple.y - 1);
 
-            //A* ===================================================================================================
-            Tuple next;
-            try {
-                next = a_star(snake_me);
-            } catch(NullPointerException npe) {
-                next = null;
-            }
+                try {
+                    next = a_star(board, snake_me);
+                } catch (NullPointerException npe) {
+                    next = null;
+                }
 
-            if(next == null) { moveStraight(); }
-            else if(next.x < snake_me.x) { moveWest(); }
-            else if(next.x > snake_me.x) { moveEast(); }
-            else if(next.y < snake_me.y) { moveNorth(); }
-            else if(next.y > snake_me.y) { moveSouth(); }
-            //======================================================================================================
-
-            long end_time = System.nanoTime();
-
-            double duration = Math.floor((end_time - start_time) / 1000000);
-
-            String time_output = "";
-            time_output += "Time: " + duration + "ms";
-
-            if(duration > 50) {
-                time_output += " Me: " + snake_me.toString();
-                time_output += " Apple: " + apple.toString();
-            }
-
-            try(FileWriter fw = new FileWriter("time.txt", true);
-                BufferedWriter bw = new BufferedWriter(fw);
-                PrintWriter out = new PrintWriter(bw))
-            {
-                out.println(time_output);
-            } catch (IOException e) {
+                if (next == null) {
+                    moveStraight();
+                } else if (next.x < snake_me.x) {
+                    moveWest();
+                } else if (next.x > snake_me.x) {
+                    moveEast();
+                } else if (next.y < snake_me.y) {
+                    moveNorth();
+                } else if (next.y > snake_me.y) {
+                    moveSouth();
+                }
+                //======================================================================================================
+            } catch (Exception e) {
                 e.printStackTrace();
             }
         }
@@ -135,120 +122,130 @@ public class SnakeAgent extends DevelopmentAgent {
 
     private double step_distance(Tuple p1, Tuple p2) { return Math.ceil(Math.sqrt( (p1.x - p2.x)*(p1.x - p2.x) + (p1.y - p2.y)*(p1.y - p2.y) )); }
 
-    private void mark_barriers(Tuple p1, Tuple p2) {
-        if(p1.x > p2.x) {
+    private void mark_barriers(int[][] board, int x1, int y1, int x2, int y2) {
+        if(x1 > x2) {
 
-            for (int i = p1.x; i >= p2.x; i--) {
-                barriers.add(new Tuple(i, p1.y));
+            for (int i = x1; i >= x2; i--) {
+                board[i][y1] = 1;
             }
 
-        } else if(p1.x < p2.x) {
+        } else if(x1 < x2) {
 
-            for (int i = p1.x; i <= p2.x; i++) {
-                barriers.add(new Tuple(i, p1.y));
+            for (int i = x1; i <= x2; i++) {
+                board[i][y1] = 1;
             }
 
-        } else if(p1.y > p2.y) {
+        } else if(y1 > y2) {
 
-            for (int i = p1.y; i >= p2.y; i--) {
-                barriers.add(new Tuple(p1.x, i));
+            for (int i = y1; i >= y2; i--) {
+                board[x1][i] = 1;
             }
 
-        } else if(p1.y < p2.y) {
+        } else if(y1 < y2) {
 
-            for (int i = p1.y; i <= p2.y; i++) {
-                barriers.add(new Tuple(p1.x, i));
+            for (int i = y1; i <= y2; i++) {
+                board[x1][i] = 1;
             }
 
         }
     }
 
-    private double tupleSums(Tuple[] points, Tuple origin) {
-        double sum = 0;
-        for(Tuple p: points) { sum += step_distance(p, origin); }
-        return sum;
-    }
+    private Tuple a_star(int[][] board, Tuple start) {
 
-    private Tuple a_star(Tuple start) {
-        PriorityQueue<Vertex> open_list = new PriorityQueue<>((o1, o2) -> {
-            if(o1.f < o2.f) {
-                return -1;
-            } else if (o1.f > o2.f) {
-                return 1;
-            } else if (o1.f == o2.f) {
-                if(o1.h < o2.h) {
+        int[][] closed_set = new int[board_height][board_width];
+        double[][] h_map = new double[board_height][board_height];
+        double[][] g_map = new double[board_height][board_width];
+        double[][] f_map = new double[board_height][board_width];
+
+        PriorityQueue<Vertex> open_set = new PriorityQueue<>(new Comparator<Vertex>() {
+            @Override
+            public int compare(Vertex o1, Vertex o2) {
+                if (o1.f < o2.f) {
                     return -1;
-                } else if (o1.h > o2.h) {
+                } else if (o1.f > o2.f) {
                     return 1;
-                } else if (o1.h == o2.h) {
-                    return Double.compare(o1.g, o2.g);
+                } else {
+                    if (o1.h < o2.h) {
+                        return -1;
+                    } else if (o1.h > o2.h) {
+                        return 1;
+                    } else {
+                        if (o1.g < o2.g) {
+                            return -1;
+                        } else if (o1.g > o2.g) {
+                            return 1;
+                        } else {
+                            return 0;
+                        }
+                    }
                 }
             }
-
-            return 0;
         });
-        ArrayList<Vertex> closed_list = new ArrayList<>();
 
         HashMap<Tuple, Tuple> path = new HashMap<>();
 
-        open_list.add(new Vertex(start, 0, 0));
+        open_set.add(new Vertex(start, 0, 0));
+        h_map[start.x][start.y] = 0;
+        g_map[start.x][start.y] = 0;
+        f_map[start.x][start.y] = g_map[start.x][start.y] + h_map[start.x][start.y];
 
-        while(!open_list.isEmpty()) {
-            Vertex current = open_list.poll();
-            ArrayList<Vertex> neighbours = new ArrayList<>();
+        while(!open_set.isEmpty()) {
+            Tuple current = open_set.poll().point;
 
-            for(int i = 0; i < 4; i++) {
-                Tuple neighbour_point = new Tuple(current.point.x, current.point.y);
+            ArrayList<Tuple> neighbours = new ArrayList<>();
 
+
+            for (int i = 0; i < 4; i++) {
+                Tuple neighbour = new Tuple(current.x, current.y);
                 switch (i) {
                     case 0 -> //North
-                            neighbour_point.y -= 1;
+                            neighbour.y -= 1;
                     case 1 -> //East
-                            neighbour_point.x += 1;
+                            neighbour.x += 1;
                     case 2 -> //South
-                            neighbour_point.y += 1;
+                            neighbour.y += 1;
                     case 3 -> //West
-                            neighbour_point.x -= 1;
+                            neighbour.x -= 1;
                 }
 
-                if (
-                        neighbour_point.x < 0 ||
-                                neighbour_point.x >= board_width ||
-                                neighbour_point.y < 0 ||
-                                neighbour_point.y >= board_height ||
-                                barriers.contains(neighbour_point) ||
-                                closed_list.indexOf(new Vertex(neighbour_point, 0, 0)) >= 0
+                if(
+                    neighbour.x < 0 ||
+                    neighbour.x >= board_width ||
+                    neighbour.y < 0 ||
+                    neighbour.y >= board_height ||
+                    board[neighbour.x][neighbour.y] == 1 ||
+                    closed_set[neighbour.x][neighbour.y] == 8
                 ) {
                     continue;
                 }
 
-                double neighbour_h = mew_apple * step_distance(neighbour_point, apple);
-
-                double neighbour_g = current.g + 1;
-                neighbours.add(new Vertex(neighbour_point, neighbour_h, neighbour_g));
-
-                path.put(neighbour_point, current.point);
+                path.put(neighbour, current);
+                neighbours.add(neighbour);
             }
 
-            boolean found_apple = false;
+            boolean apple_found = false;
 
-            for(Vertex neighbour : neighbours) {
-                if(neighbour.point.equals(apple)) { found_apple = true; break; }
+            for(Tuple neighbour: neighbours) {
+                if(neighbour.equals(apple)) { apple_found = true; break; }
+
+                double neighbour_h = mew_apple * step_distance(neighbour, apple);
+                double neighbour_g = g_map[current.x][current.y] + 1;
+                double neighbour_f = neighbour_h + neighbour_g;
 
                 boolean ov_found = false;
-                boolean cv_found = false;
-                for(Vertex ov: open_list) { if(ov.equals(neighbour) && ov.f < neighbour.f) { ov_found = true; break; } }
+                for (Vertex ov: open_set) { if (ov.point.equals(neighbours) && f_map[ov.point.x][ov.point.y] < neighbour_f) { ov_found = true; } }
                 if(ov_found) { continue; }
-                for(Vertex cv: closed_list) { if(cv.equals(neighbour) && cv.f < neighbour.f) { cv_found = true; break; } }
-                if(cv_found) { continue; }
+                if(closed_set[neighbour.x][neighbour.y] == 8 && f_map[neighbour.x][neighbour.y] < neighbour_f) { continue; }
 
-                open_list.add(neighbour);
+                open_set.add(new Vertex(neighbour, neighbour_h, neighbour_g));
+                h_map[neighbour.x][neighbour.y] = neighbour_h;
+                g_map[neighbour.x][neighbour.y] = neighbour_g;
+                f_map[neighbour.x][neighbour.y] = neighbour_f;
             }
 
-            closed_list.add(current);
+            closed_set[current.x][current.y] = 8;
 
-            if (found_apple) { break; }
-
+            if (apple_found) { break; }
         }
 
         Tuple backtrace_tuple = apple;
