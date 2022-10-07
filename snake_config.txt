@@ -1,0 +1,4 @@
+game_width      20
+game_height     20
+num_snakes      2
+speed           100
