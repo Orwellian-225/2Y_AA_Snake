@@ -34,54 +34,68 @@ public class Snake2 extends DevelopmentAgent {
         board = new char[b_width][b_height];
 
         while(true) {
-            //Parse Input ==============================================================================================
-            String[] input = new String[8 + n_snakes];
 
-            board = new char[b_width][b_height];
-            s_heads = new ArrayList<>();
+            try {
+                //Parse Input ==========================================================================================
+                String[] input = new String[8 + n_snakes];
 
-            for (int i = 0; i < 8 + n_snakes; i++) {
-                input[i] = in.nextLine();
+                board = new char[b_width][b_height];
+                s_heads = new ArrayList<>();
+
+                boolean exit_game = false;
+                for (int i = 0; i < 8 + n_snakes; i++) {
+                    input[i] = in.nextLine();
+                    if(input[i].equalsIgnoreCase("Game Over")) { exit_game = true; break; }
+                }
+
+                if(exit_game) { break; }
+
+                Tuple apple = new Tuple();
+                String[] apple_split = input[0].split(" ");
+                apple.x = Integer.parseInt(apple_split[0]);
+                apple.y = Integer.parseInt(apple_split[1]);
+                board[apple.x][apple.y] = 'A';
+
+                for(int z = 0; z < n_zombies; z++) {
+                    String[] z_split = input[z + 1].split(" ");
+                    mark_barriers_zombie(z_split);
+                    z_heads[z] = new Tuple(z_split[0]);
+                    board[z_heads[z].x][z_heads[z].y] = 'Z';
+                }
+
+                ms_idx = Integer.parseInt(input[1 + n_zombies]);
+
+                for(int s = 0; s < n_snakes; s++) {
+                    int input_idx = 2 + n_zombies + s;
+                    final int input_head_idx = 3;
+
+                    String[] s_split = input[input_idx].split(" ");
+                    if(s_split[0].equalsIgnoreCase("dead")) { continue; }
+                    mark_barriers_snake(s_split);
+                    s_heads.add(new Tuple(s_split[input_head_idx]));
+                    board[s_heads.get(s).x][s_heads.get(s).y] = 'S';
+                }
+
+                board[s_heads.get(ms_idx).x][s_heads.get(ms_idx).y] = 'M';
+                //======================================================================================================
+
+                //A* ===================================================================================================
+                Tuple[][] path_tree = a_star(s_heads.get(ms_idx), apple);
+                Tuple next = backtrace(path_tree, s_heads.get(ms_idx), apple);
+                //======================================================================================================
+
+                //Move Direction Calculation ===========================================================================
+                if(next == null) { System.out.println(5); }
+                else if(next.x > s_heads.get(ms_idx).x) { System.out.println(3); }
+                else if(next.x < s_heads.get(ms_idx).x) { System.out.println(2); }
+                else if(next.y > s_heads.get(ms_idx).y) { System.out.println(1); }
+                else if(next.y < s_heads.get(ms_idx).y) { System.out.println(0); }
+                //======================================================================================================
+            } catch (Exception e) {
+                System.out.println(5);
+                e.printStackTrace();
             }
 
-            Tuple apple = new Tuple();
-            String[] apple_split = input[0].split(" ");
-            apple.x = Integer.parseInt(apple_split[0]);
-            apple.y = Integer.parseInt(apple_split[1]);
-            board[apple.x][apple.y] = 'A';
-
-            for(int z = 0; z < n_zombies; z++) {
-                String[] z_split = input[z + 1].split(" ");
-                mark_barriers_zombie(z_split);
-                z_heads[z] = new Tuple(z_split[0]);
-                board[z_heads[z].x][z_heads[z].y] = 'Z';
-            }
-
-            ms_idx = Integer.parseInt(input[1 + n_zombies]);
-
-            for(int s = 0; s < n_snakes; s++) {
-                String[] s_split = input[2 + n_zombies + s].split(" ");
-                if(s_split[0].equalsIgnoreCase("dead")) { continue; }
-                mark_barriers_snake(s_split);
-                s_heads.add(new Tuple(s_split[3]));
-                board[s_heads.get(s).x][s_heads.get(s).y] = 'S';
-            }
-
-            board[s_heads.get(ms_idx).x][s_heads.get(ms_idx).y] = 'M';
-            //==========================================================================================================
-
-            //A* =======================================================================================================
-            Tuple[][] path_tree = a_star(s_heads.get(ms_idx), apple);
-            Tuple next = backtrace(path_tree, s_heads.get(ms_idx), apple);
-            //==========================================================================================================
-
-            //Move Direction Calculation ===============================================================================
-            if(next == null) { System.out.println(5); }
-            else if(next.x > s_heads.get(ms_idx).x) { System.out.println(3); }
-            else if(next.x < s_heads.get(ms_idx).x) { System.out.println(2); }
-            else if(next.y > s_heads.get(ms_idx).y) { System.out.println(1); }
-            else if(next.y < s_heads.get(ms_idx).y) { System.out.println(0); }
-            //==========================================================================================================
         }
     }
 
@@ -163,21 +177,9 @@ public class Snake2 extends DevelopmentAgent {
         open_set.add(start);
 
         while(!open_set.isEmpty()) {
-            double min_g = Double.MAX_VALUE;//, max_g = Double.MIN_VALUE;
-            double min_h = Double.MAX_VALUE;//, max_h = Double.MIN_VALUE;
-            double min_f = Double.MAX_VALUE;//, max_f = Double.MIN_VALUE;
-            for(int i = 0; i < b_width; i++) {
-                for(int j = 0; j < b_height; j++) {
-                    //if(f_map[i][j] > max_f) { max_f = f_map[i][j]; }
-                    if(f_map[i][j] < min_f && f_map[i][j] > 0 && closed_set[i][j] != 'O') { min_f = f_map[i][j]; }
-                    //if(h_map[i][j] > max_h) { max_h = h_map[i][j]; }
-                    if(h_map[i][j] < min_h && h_map[i][j] > 0 && closed_set[i][j] != 'O') { min_h = h_map[i][j]; }
-                    //if(g_map[i][j] > max_g) { max_g = g_map[i][j]; }
-                    if(g_map[i][j] < min_g && g_map[i][j] > 0 && closed_set[i][j] != 'O') { min_g = g_map[i][j]; }
-                }
-            }
 
             Tuple current = open_set.get(0);
+            open_set.remove(0);
 
             //Neighbours
             ArrayList<Tuple> neighbours = new ArrayList<>();
@@ -227,13 +229,17 @@ public class Snake2 extends DevelopmentAgent {
                 f_map[neighbour.x][neighbour.y] = neighbour_f;
                 board[neighbour.x][neighbour.y] = 'X';
 
-                int i = open_set.size();
+                int i = open_set.size() - 1;
                 while(
-                        i > 1 &&
-                                ( f_map[open_set.get(i - 1).x][open_set.get(i - 1).y] > f_map[open_set.get(i).x][open_set.get(i).y] ||
-                                h_map[open_set.get(i - 1).x][open_set.get(i - 1).y] > h_map[open_set.get(i).x][open_set.get(i).y] )
+                        i > 0 &&
+                                (
+                                    f_map[open_set.get(i - 1).x][open_set.get(i - 1).y] > f_map[open_set.get(i).x][open_set.get(i).y] ||
+                                    h_map[open_set.get(i - 1).x][open_set.get(i - 1).y] > h_map[open_set.get(i).x][open_set.get(i).y] ||
+                                    g_map[open_set.get(i - 1).x][open_set.get(i - 1).y] > g_map[open_set.get(i).x][open_set.get(i).y]
+                                )
                 ) {
                     Collections.swap(open_set, i - 1, i);
+                    i--;
                 }
 
             }
@@ -247,7 +253,9 @@ public class Snake2 extends DevelopmentAgent {
 
     public Tuple backtrace(Tuple[][] tree_path, Tuple start, Tuple end) {
         Tuple current = end;
-        while(!tree_path[current.x][current.y].equals(start)) { current = tree_path[current.x][current.y]; }
+        while(!tree_path[current.x][current.y].equals(start)) {
+            current = tree_path[current.x][current.y];
+        }
         return current;
     }
 }
