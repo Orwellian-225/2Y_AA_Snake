@@ -1,7 +1,7 @@
 import za.ac.wits.snake.DevelopmentAgent;
 
-import java.lang.reflect.Array;
 import java.util.*;
+import java.io.*;
 
 public class Snake2 extends DevelopmentAgent {
 
@@ -15,6 +15,11 @@ public class Snake2 extends DevelopmentAgent {
     public ArrayList<Tuple> s_heads = new ArrayList<>();
     public ArrayList<Tuple> barriers = new ArrayList<>();
     public char[][] board;
+
+    public double mew_a = 1;
+    public double mew_s = 1;
+    public double mew_z = 1;
+    public double mew_b = 1;
 
     public static void main(String[] args) {
         Snake2 agent = new Snake2();
@@ -33,7 +38,21 @@ public class Snake2 extends DevelopmentAgent {
 
         board = new char[b_width][b_height];
 
+        String durations_file_path = "durations.txt";
+
+        try {
+            BufferedWriter clear = new BufferedWriter(new FileWriter(durations_file_path, false));
+            clear.write("");
+            clear.close();
+        } catch (IOException ioe) {
+            ioe.printStackTrace();
+        }
+
+        int frame_count = 0;
+
         while(true) {
+            frame_count++;
+            long start_time = System.nanoTime();
 
             try {
                 //Parse Input ==========================================================================================
@@ -96,6 +115,20 @@ public class Snake2 extends DevelopmentAgent {
                 e.printStackTrace();
             }
 
+            long end_time = System.nanoTime();
+
+            long duration_ns = end_time - start_time;
+            int duration_ms = Math.round(duration_ns / 1000000);
+
+            try {
+                FileWriter duration_fw = new FileWriter(durations_file_path, true);
+                BufferedWriter duration_bw = new BufferedWriter(duration_fw);
+                duration_bw.write(frame_count + " " + duration_ms + " ms");
+                duration_bw.newLine();
+                duration_bw.close();
+            } catch (IOException ioe) {
+                ioe.printStackTrace();
+            }
         }
     }
 
@@ -161,6 +194,26 @@ public class Snake2 extends DevelopmentAgent {
         return Math.ceil(Math.sqrt((p1.x-p2.x)*(p1.x-p2.x) + (p1.y-p2.y)*(p1.y-p2.y)));
     }
 
+    public double distance_sum(ArrayList<Tuple> tuples, Tuple distance_to) {
+        double sum = 0;
+
+        for(Tuple t: tuples) {
+            sum += step_distance(t, distance_to);
+        }
+
+        return sum;
+    }
+
+    public double distance_sum(Tuple[] tuples, Tuple distance_to) {
+        double sum = 0;
+
+        for(Tuple t: tuples) {
+            sum += step_distance(t, distance_to);
+        }
+
+        return sum;
+    }
+
     public Tuple[][] a_star(Tuple start, Tuple end) {
         Tuple[][] tree = new Tuple[b_width][b_height];
 
@@ -200,7 +253,8 @@ public class Snake2 extends DevelopmentAgent {
                 if (
                         neighbour.x >= b_width || neighbour.x < 0 ||
                         neighbour.y >= b_height || neighbour.y < 0 ||
-                        board[neighbour.x][neighbour.y] == 'B' || board[neighbour.x][neighbour.y] == 'S' ||
+                        board[neighbour.x][neighbour.y] == 'B' ||
+                        board[neighbour.x][neighbour.y] == 'S' ||
                         board[neighbour.x][neighbour.y] == 'Z' ||
                         closed_set[neighbour.x][neighbour.y] == 'O'
                 ) {
@@ -216,7 +270,12 @@ public class Snake2 extends DevelopmentAgent {
             for(Tuple neighbour: neighbours) {
                 if(neighbour.equals(end)) { goal_found = true; break; }
 
-                double neighbour_h = step_distance(neighbour, end);
+                double neighbour_h =
+                        mew_a * step_distance(neighbour, end);
+                        //+ mew_z * distance_sum(z_heads, start)
+                        //+ mew_s * distance_sum(s_heads, start)
+                        //+ mew_b * distance_sum(barriers, start);
+
                 double neighbour_g = g_map[current.x][current.y] + 1;
                 double neighbour_f = neighbour_h + neighbour_g;
 
