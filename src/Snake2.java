@@ -16,11 +16,6 @@ public class Snake2 extends DevelopmentAgent {
     public ArrayList<Tuple> barriers = new ArrayList<>();
     public char[][] board;
 
-    public double mew_a = 1;
-    public double mew_s = 1;
-    public double mew_z = 1;
-    public double mew_b = 1;
-
     public static void main(String[] args) {
         Snake2 agent = new Snake2();
         Snake2.start(agent, args);
@@ -38,22 +33,7 @@ public class Snake2 extends DevelopmentAgent {
 
         board = new char[b_width][b_height];
 
-        String durations_file_path = "durations.txt";
-
-        try {
-            BufferedWriter clear = new BufferedWriter(new FileWriter(durations_file_path, false));
-            clear.write("");
-            clear.close();
-        } catch (IOException ioe) {
-            ioe.printStackTrace();
-        }
-
-        int frame_count = 0;
-
         while(true) {
-            frame_count++;
-            long start_time = System.nanoTime();
-
             try {
                 //Parse Input ==========================================================================================
                 String[] input = new String[8 + n_snakes];
@@ -67,7 +47,9 @@ public class Snake2 extends DevelopmentAgent {
                     if(input[i].equalsIgnoreCase("Game Over")) { exit_game = true; break; }
                 }
 
-                if(exit_game) { break; }
+                if(exit_game) {
+                    break;
+                }
 
                 Tuple apple = new Tuple();
                 String[] apple_split = input[0].split(" ");
@@ -80,6 +62,7 @@ public class Snake2 extends DevelopmentAgent {
                     mark_barriers_zombie(z_split);
                     z_heads[z] = new Tuple(z_split[0]);
                     board[z_heads[z].x][z_heads[z].y] = 'Z';
+                    barriers.remove(z_heads[z]);
                 }
 
                 ms_idx = Integer.parseInt(input[1 + n_zombies]);
@@ -92,14 +75,15 @@ public class Snake2 extends DevelopmentAgent {
                     if(s_split[0].equalsIgnoreCase("dead")) { continue; }
                     mark_barriers_snake(s_split);
                     s_heads.add(new Tuple(s_split[input_head_idx]));
-                    board[s_heads.get(s).x][s_heads.get(s).y] = 'S';
+                    barriers.remove(s_heads.get(s_heads.size() - 1));
+                    board[s_heads.get(s_heads.size() - 1).x][s_heads.get(s_heads.size() - 1).y] = 'S';
                 }
 
                 board[s_heads.get(ms_idx).x][s_heads.get(ms_idx).y] = 'M';
                 //======================================================================================================
 
                 //A* ===================================================================================================
-                Tuple[][] path_tree = a_star(s_heads.get(ms_idx), apple);
+                HashMap<Tuple, Tuple> path_tree = a_star(s_heads.get(ms_idx), apple);
                 Tuple next = backtrace(path_tree, s_heads.get(ms_idx), apple);
                 //======================================================================================================
 
@@ -114,21 +98,16 @@ public class Snake2 extends DevelopmentAgent {
                 System.out.println(5);
                 e.printStackTrace();
             }
+        }
 
-            long end_time = System.nanoTime();
-
-            long duration_ns = end_time - start_time;
-            int duration_ms = Math.round(duration_ns / 1000000);
-
-            try {
-                FileWriter duration_fw = new FileWriter(durations_file_path, true);
-                BufferedWriter duration_bw = new BufferedWriter(duration_fw);
-                duration_bw.write(frame_count + " " + duration_ms + " ms");
-                duration_bw.newLine();
-                duration_bw.close();
-            } catch (IOException ioe) {
-                ioe.printStackTrace();
-            }
+        try {
+            FileWriter fw_score = new FileWriter("game_scores.txt", true);
+            BufferedWriter bw_score = new BufferedWriter(fw_score);
+            bw_score.write("Rank: " + this.getRank() + " Kills: " + this.getKills() + " Longest: " + this.getLongest());
+            bw_score.newLine();
+            bw_score.close();
+        } catch (IOException ioe) {
+            ioe.printStackTrace();
         }
     }
 
@@ -191,31 +170,12 @@ public class Snake2 extends DevelopmentAgent {
     }
 
     public double step_distance(Tuple p1, Tuple p2) {
-        return Math.ceil(Math.sqrt((p1.x-p2.x)*(p1.x-p2.x) + (p1.y-p2.y)*(p1.y-p2.y)));
+        return Math.abs(p1.x - p2.x) + Math.abs(p1.y - p2.y);
     }
 
-    public double distance_sum(ArrayList<Tuple> tuples, Tuple distance_to) {
-        double sum = 0;
-
-        for(Tuple t: tuples) {
-            sum += step_distance(t, distance_to);
-        }
-
-        return sum;
-    }
-
-    public double distance_sum(Tuple[] tuples, Tuple distance_to) {
-        double sum = 0;
-
-        for(Tuple t: tuples) {
-            sum += step_distance(t, distance_to);
-        }
-
-        return sum;
-    }
-
-    public Tuple[][] a_star(Tuple start, Tuple end) {
+    public HashMap<Tuple, Tuple> a_star(Tuple start, Tuple end) {
         Tuple[][] tree = new Tuple[b_width][b_height];
+        HashMap<Tuple, Tuple> tree_hm = new HashMap();
 
         double[][] f_map = new double[b_width][b_height];
         double[][] h_map = new double[b_width][b_height];
@@ -262,6 +222,7 @@ public class Snake2 extends DevelopmentAgent {
                 }
 
                 tree[neighbour.x][neighbour.y] = current;
+                tree_hm.put(neighbour, current);
                 neighbours.add(neighbour);
             }
 
@@ -270,13 +231,17 @@ public class Snake2 extends DevelopmentAgent {
             for(Tuple neighbour: neighbours) {
                 if(neighbour.equals(end)) { goal_found = true; break; }
 
-                double neighbour_h =
-                        mew_a * step_distance(neighbour, end);
-                        //+ mew_z * distance_sum(z_heads, start)
-                        //+ mew_s * distance_sum(s_heads, start)
-                        //+ mew_b * distance_sum(barriers, start);
+                double neighbour_h = 100 * step_distance(neighbour, end);
 
-                double neighbour_g = g_map[current.x][current.y] + 1;
+                for (Tuple z: z_heads) {
+                    neighbour_h += 20 * 100 * (b_width + b_height)/step_distance(z, end);
+                }
+
+                for (Tuple s: s_heads) {
+                    neighbour_h += 100 * (b_width + b_height)/step_distance(s, end);
+                }
+              
+                double neighbour_g = 100 * g_map[current.x][current.y] + 1;
                 double neighbour_f = neighbour_h + neighbour_g;
 
                 if(board[neighbour.x][neighbour.y] == 'X' && f_map[neighbour.x][neighbour.y] < neighbour_f) { continue; }
@@ -307,13 +272,26 @@ public class Snake2 extends DevelopmentAgent {
             if(goal_found) { break; }
         }
 
-        return tree;
+        return tree_hm;
     }
 
     public Tuple backtrace(Tuple[][] tree_path, Tuple start, Tuple end) {
         Tuple current = end;
         while(!tree_path[current.x][current.y].equals(start)) {
             current = tree_path[current.x][current.y];
+        }
+        return current;
+    }
+
+    public Tuple backtrace(HashMap<Tuple, Tuple> path, Tuple start, Tuple end) {
+        Tuple current = end;
+
+        try {
+            while (!path.get(current).equals(start)) {
+                current = path.get(current);
+            }
+        } catch (NullPointerException npe) {
+            return null;
         }
         return current;
     }
