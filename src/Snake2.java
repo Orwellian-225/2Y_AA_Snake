@@ -1,5 +1,6 @@
 import za.ac.wits.snake.DevelopmentAgent;
 
+import javax.swing.plaf.synth.SynthTextAreaUI;
 import java.util.*;
 import java.io.*;
 
@@ -13,7 +14,7 @@ public class Snake2 extends DevelopmentAgent {
 
     public Tuple[] z_heads = new Tuple[n_zombies];
     public ArrayList<Tuple> s_heads = new ArrayList<>();
-    public ArrayList<Tuple> barriers = new ArrayList<>();
+    public ArrayList<Integer> s_lengths = new ArrayList<>();
     public char[][] board;
 
     public static void main(String[] args) {
@@ -35,130 +36,96 @@ public class Snake2 extends DevelopmentAgent {
 
         while(true) {
 
-            //double start_time = System.nanoTime();
+        	try {
+	            //Parse Input ==========================================================================================
+                board = new char[b_width][b_height];
+	            s_heads = new ArrayList<>(n_snakes);
+                s_lengths = new ArrayList<>(n_snakes);
 
-            //Parse Input ==========================================================================================
-            String[] input = new String[8 + n_snakes];
+                String apple_str = in.nextLine();
+                double parse_st = System.nanoTime();
+                double time_s = System.nanoTime();
+                String[] apple_split = apple_str.split(" ");
+                Tuple apple = new Tuple(Integer.parseInt(apple_split[0]), Integer.parseInt(apple_split[1]));
 
-            board = new char[b_width][b_height];
-            s_heads = new ArrayList<>();
 
+                for(int i = 0; i < n_zombies; i++) {
+                    String zombie_str = in.nextLine();
+                    String[] zombie_split = zombie_str.split(" ");
 
-            boolean exit_game = false;
-            for (int i = 0; i < 8 + n_snakes; i++) {
-                input[i] = in.nextLine();
-                if(input[i].equalsIgnoreCase("Game Over")) { exit_game = true; break; }
-            }
+                    z_heads[i] = new Tuple(zombie_split[0]);
+                    mark_barriers(zombie_split);
+                    board[z_heads[i].x][z_heads[i].y] = 'Z';
 
-            if(exit_game) {
-                break;
-            }
+                    if(z_heads[i].x + 1 < b_width) { board[z_heads[i].x + 1][z_heads[i].y] = 'B'; }
+                    if(z_heads[i].x - 1 > -1) { board[z_heads[i].x - 1][z_heads[i].y] = 'B'; }
+                    if(z_heads[i].y + 1 < b_height) { board[z_heads[i].x][z_heads[i].y + 1] = 'B'; }
+                    if(z_heads[i].y - 1 > -1) { board[z_heads[i].x][z_heads[i].y - 1] = 'B'; }
+                }
 
-            Tuple apple = new Tuple();
-            String[] apple_split = input[0].split(" ");
-            apple.x = Integer.parseInt(apple_split[0]);
-            apple.y = Integer.parseInt(apple_split[1]);
-            board[apple.x][apple.y] = 'A';
+                int ms_idx = Integer.parseInt(in.nextLine());
 
-            for(int z = 0; z < n_zombies; z++) {
-                String[] z_split = input[z + 1].split(" ");
-                mark_barriers_zombie(z_split);
-                z_heads[z] = new Tuple(z_split[0]);
-                board[z_heads[z].x][z_heads[z].y] = 'Z';
-                barriers.remove(z_heads[z]);
-            }
+                for(int i = 0; i < n_snakes; i++) {
+                    String snake_str = in.nextLine();
+                    String[] snake_split = snake_str.split(" ");
+                    if(snake_split[0].equalsIgnoreCase("dead")) {
+                        if(i < ms_idx) { ms_idx--; }
+                        continue;
+                    }
 
-            ms_idx = Integer.parseInt(input[1 + n_zombies]);
+                    s_lengths.add(Integer.parseInt(snake_split[1]));
+                    s_heads.add(new Tuple(snake_split[3]));
 
-            for(int s = 0; s < n_snakes; s++) {
-                int input_idx = 2 + n_zombies + s;
-                final int input_head_idx = 3;
+                    String[] snake_body = Arrays.copyOfRange(snake_split, 3, snake_split.length);
+                    mark_barriers(snake_body);
 
-                String[] s_split = input[input_idx].split(" ");
-                if(s_split[0].equalsIgnoreCase("dead")) { continue; }
-                mark_barriers_snake(s_split);
-                s_heads.add(new Tuple(s_split[input_head_idx]));
-                barriers.remove(s_heads.get(s_heads.size() - 1));
-                board[s_heads.get(s_heads.size() - 1).x][s_heads.get(s_heads.size() - 1).y] = 'S';
-            }
+                    board[s_heads.get(s_heads.size() - 1).x][s_heads.get(s_heads.size() - 1).y] = 'S';
+                }
+                double parse_t = (System.nanoTime() - parse_st) / 1e6;
+	            //======================================================================================================
 
-            board[s_heads.get(ms_idx).x][s_heads.get(ms_idx).y] = 'M';
-            //======================================================================================================
+	            //A* ===================================================================================================
+                double nav_st = System.nanoTime();
+	            Tuple[][] path_tree = a_star(s_heads.get(ms_idx), apple);
+	            Tuple next = backtrace(path_tree, s_heads.get(ms_idx), apple);
+                double nav_t = (System.nanoTime() - nav_st) / 1e6;
+	            //======================================================================================================
 
-            //A* ===================================================================================================
-            Tuple[][] path_tree = a_star(s_heads.get(ms_idx), apple);
-            Tuple next = backtrace(path_tree, s_heads.get(ms_idx), apple);
-            //======================================================================================================
+	            //Move Direction Calculation ===========================================================================
+	            if(next == null) { System.out.println(5); }
+	            else if(next.x > s_heads.get(ms_idx).x) { System.out.println(3); }
+	            else if(next.x < s_heads.get(ms_idx).x) { System.out.println(2); }
+	            else if(next.y > s_heads.get(ms_idx).y) { System.out.println(1); }
+	            else if(next.y < s_heads.get(ms_idx).y) { System.out.println(0); }
+	            //======================================================================================================
 
-            //double end_time = System.nanoTime();
-            //double duration = (end_time - start_time) / 100000;
-
-            //Move Direction Calculation ===========================================================================
-            if(next == null) { System.out.println(5); }
-            else if(next.x > s_heads.get(ms_idx).x) { System.out.println(3); }
-            else if(next.x < s_heads.get(ms_idx).x) { System.out.println(2); }
-            else if(next.y > s_heads.get(ms_idx).y) { System.out.println(1); }
-            else if(next.y < s_heads.get(ms_idx).y) { System.out.println(0); }
-            //======================================================================================================
-
+                double time = (System.nanoTime() - time_s) / 1e6;
+                if(time > 10) { System.out.println("log Time: " + time); }
+                //while((System.nanoTime() - time_s) / 1e6 < 20) {}
+        	} catch(Exception e) {
+        		e.printStackTrace();
+        	}
         }
     }
 
-    public void mark_barriers_snake(String[] s) {
-        for(int i = 0; i < s.length - 4; i++) {
-            Tuple p1 = new Tuple(s[3 + i]);
-            Tuple p2 = new Tuple(s[3 + i + 1]);
+    public void mark_barriers(String[] barrier_coords) {
+        for(int j = 0; j < barrier_coords.length - 1; j++) {
+            String[] coord_1_str = barrier_coords[j].split(","), coord_2_str = barrier_coords[j + 1].split(",");
+            int[] coord_1 = {Integer.parseInt(coord_1_str[0]), Integer.parseInt(coord_1_str[1])};
+            int[] coord_2 = {Integer.parseInt(coord_2_str[0]), Integer.parseInt(coord_2_str[1])};
 
-            if (p1.x > p2.x) {
-                for (int x = p2.x; x <= p1.x; x++) {
-                    board[x][p1.y] = 'B';
-                    barriers.add(new Tuple(x, p1.y));
-                }
-            } else if(p1.x < p2.x) {
-                for (int x = p1.x; x <= p2.x; x++) {
-                    board[x][p1.y] = 'B';
-                    barriers.add(new Tuple(x, p1.y));
-                }
-            } else if(p1.y > p2.y) {
-                for (int y = p2.y; y <= p1.y; y++) {
-                    board[p1.x][y] = 'B';
-                    barriers.add(new Tuple(p1.x, y));
-                }
-            } else if(p1.y < p2.y) {
-                for (int y = p1.y; y <= p2.y; y++) {
-                    board[p1.x][y] = 'B';
-                    barriers.add(new Tuple(p1.x, y));
+            int start_x = coord_1[0], end_x = coord_2[0];
+            int start_y = coord_1[1], end_y = coord_2[1];
+
+            if(end_x < start_x) { end_x = coord_1[0]; start_x = coord_2[0]; }
+            if(end_y < start_y) { end_y = coord_1[1]; start_y = coord_2[1]; }
+
+            for(int x = start_x; x <= end_x; x++) {
+                for(int y = start_y; y <= end_y; y++) {
+                    board[x][y] = 'B';
                 }
             }
-        }
-    }
 
-    public void mark_barriers_zombie(String[] z) {
-        for(int i = 0; i < z.length - 1; i++) {
-            Tuple p1 = new Tuple(z[i]);
-            Tuple p2 = new Tuple(z[i + 1]);
-
-            if (p1.x > p2.x) {
-                for (int x = p2.x; x <= p1.x; x++) {
-                    board[x][p1.y] = 'B';
-                    barriers.add(new Tuple(x, p1.y));
-                }
-            } else if(p1.x < p2.x) {
-                for (int x = p1.x; x <= p2.x; x++) {
-                    board[x][p1.y] = 'B';
-                    barriers.add(new Tuple(x, p1.y));
-                }
-            } else if(p1.y > p2.y) {
-                for (int y = p2.y; y <= p1.y; y++) {
-                    board[p1.x][y] = 'B';
-                    barriers.add(new Tuple(p1.x, y));
-                }
-            } else if(p1.y < p2.y) {
-                for (int y = p1.y; y <= p2.y; y++) {
-                    board[p1.x][y] = 'B';
-                    barriers.add(new Tuple(p1.x, y));
-                }
-            }
         }
     }
 
@@ -181,7 +148,9 @@ public class Snake2 extends DevelopmentAgent {
         f_map[start.x][start.y] = h_map[start.x][start.y] + g_map[start.x][start.y];
         open_set.add(start);
 
-        double threat_threshold = 5;
+        double goal_distance = step_distance(start, end);
+        double snake_threat_threshold = Math.ceil((goal_distance + s_lengths.get(ms_idx)) / 10);
+        double zombie_threat_threshold = Math.ceil((goal_distance + s_lengths.get(ms_idx)) / 10);
 
         ArrayList<Tuple> threats = new ArrayList<>();
 
@@ -190,7 +159,7 @@ public class Snake2 extends DevelopmentAgent {
 
             double s_threat = step_distance(start, s_heads.get(i));
 
-            if(s_threat <= threat_threshold) {
+            if(s_threat <= snake_threat_threshold) {
                 threats.add(s_heads.get(i));
             }
         }
@@ -198,13 +167,14 @@ public class Snake2 extends DevelopmentAgent {
         for(int i = 0; i < n_zombies; i++) {
             double z_threat = step_distance(start, z_heads[i]);
 
-            if(z_threat <= threat_threshold) {
+            if(z_threat <= zombie_threat_threshold) {
                 threats.add(z_heads[i]);
             }
         }
 
+
         int step_counter = 0;
-        int max_steps = b_width + b_height;
+        int max_steps = (b_width * b_height);
 
         while(!open_set.isEmpty()) {
 
@@ -223,10 +193,10 @@ public class Snake2 extends DevelopmentAgent {
                 switch (i) {
                     case 0 -> //North
                             neighbour.y -= 1;
-                    case 1 -> //East
-                            neighbour.x += 1;
-                    case 2 -> //South
+                    case 1 -> //South
                             neighbour.y += 1;
+                    case 2 -> //East
+                            neighbour.x += 1;
                     case 3 -> //West
                             neighbour.x -= 1;
                 }
@@ -286,11 +256,6 @@ public class Snake2 extends DevelopmentAgent {
             closed_set[current.x][current.y] = 'O';
             board[current.x][current.y] = 'O';
             if(goal_found) { break; }
-        }
-
-        ArrayList<Character> char_threats = new ArrayList<>();
-        for(Tuple threat: threats) {
-            char_threats.add(board[threat.x][threat.y]);
         }
 
         return tree;
