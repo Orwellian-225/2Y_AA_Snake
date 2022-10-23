@@ -2,12 +2,17 @@ import java.util.Objects;
 
 public class Tuple {
 
-    public int x = -1;
-    public int y = -1;
+    public int x;
+    public int y;
 
     public Tuple() {
         this.x = 0;
         this.y = 0;
+    }
+
+    public Tuple(Tuple t) {
+        this.x = t.x;
+        this.y = t.y;
     }
 
     public Tuple(int x, int y) {
@@ -16,12 +21,6 @@ public class Tuple {
     }
 
     public Tuple(String str) {
-        String[] vals = str.split(",");
-        x = Integer.parseInt(vals[0]);
-        y = Integer.parseInt(vals[1]);
-    }
-
-    public void update(String str) {
         String[] vals = str.split(",");
         x = Integer.parseInt(vals[0]);
         y = Integer.parseInt(vals[1]);
@@ -45,6 +44,6 @@ public class Tuple {
     }
 
     public String toString() {
-        return Integer.toString(x) + "," + Integer.toString(y);
+        return x + "," + y;
     }
 }
