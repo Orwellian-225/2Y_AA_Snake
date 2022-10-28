@@ -3,20 +3,17 @@ import za.ac.wits.snake.DevelopmentAgent;
 import java.io.BufferedReader;
 import java.io.IOException;
 import java.io.InputStreamReader;
-import java.util.ArrayList;
-import java.util.Arrays;
-import java.util.Collections;
+import java.util.*;
 
 public class Snake3 extends DevelopmentAgent {
 
     //Game Data
     private int b_width;
     private int b_height;
-    private int s_n;
-    private final int z_n = 6;
     private Character[][] board;
 
     private ArrayList<Tuple> s_heads;
+    private ArrayList<Integer> s_lengths;
     private ArrayList<Tuple> z_heads;
     private ArrayList<Tuple> barriers;
     private int idx;
@@ -41,20 +38,24 @@ public class Snake3 extends DevelopmentAgent {
             BufferedReader input = new BufferedReader(new InputStreamReader(System.in));
 
             //Game State Input
-            {
-                String init_in_data = input.readLine();
-                String[] init_data = init_in_data.split(" ");
-                s_n = Integer.parseInt(init_data[0]);
-                b_width = Integer.parseInt(init_data[1]);
-                b_height = Integer.parseInt(init_data[2]);
+            int s_n;
+            String init_in_data = input.readLine();
+            String[] init_data = init_in_data.split(" ");
+            s_n = Integer.parseInt(init_data[0]);
+            b_width = Integer.parseInt(init_data[1]);
+            b_height = Integer.parseInt(init_data[2]);
 
-                board = new Character[b_width][b_height];
-            }
+            board = new Character[b_width][b_height];
 
             int frame_count = 0;
+            double ave_t = 0;
+            int ave_score = 0;
+
             while (true) {
                 frame_count++;
                 s_heads = new ArrayList<>(s_n);
+                s_lengths = new ArrayList<>(s_n);
+                int z_n = 6;
                 z_heads = new ArrayList<>(z_n);
                 barriers = new ArrayList<>(s_n * 5 + z_n * 6);
 
@@ -64,16 +65,9 @@ public class Snake3 extends DevelopmentAgent {
                 Tuple apple;
 
                 //Frame State Input
-                double t_parse_s;
                 String apple_in = input.readLine();
 
-                if (apple_in.equalsIgnoreCase("game over")) {
-                    log("Game Over");
-                    break;
-                }
-
                 t_net_s = System.nanoTime();
-                t_parse_s = System.nanoTime();
 
                 apple_in = apple_in.replace(" ", ",");
                 apple = new Tuple(apple_in);
@@ -84,6 +78,7 @@ public class Snake3 extends DevelopmentAgent {
                     z_heads.add(new Tuple(z_tokens[0]));
                     mark_barriers(z_tokens);
                     update_map(board, zombie_c, z_heads.get(z_heads.size() - 1));
+                    barriers.remove(z_heads.get(z_heads.size() - 1));
 
                     update_map(board, barrier_c, new Tuple(z_heads.get(z_heads.size() - 1).x + 1, z_heads.get(z_heads.size() - 1).y));
                     update_map(board, barrier_c, new Tuple(z_heads.get(z_heads.size() - 1).x - 1, z_heads.get(z_heads.size() - 1).y));
@@ -106,26 +101,28 @@ public class Snake3 extends DevelopmentAgent {
                     }
 
                     s_heads.add(new Tuple(s_tokens[3]));
+                    s_lengths.add(Integer.parseInt(s_tokens[1]));
                     mark_barriers(Arrays.copyOfRange(s_tokens, 3, s_tokens.length));
+                    barriers.remove(s_heads.get(s_heads.size() - 1));
                     update_map(board, snake_c, s_heads.get(s_heads.size() - 1));
                 }
 
                 update_map(board, 'M', s_heads.get(idx));
                 update_map(board, apple_c, apple);
 
-                double t_parse_d = (System.nanoTime() - t_parse_s) / 1e6;
-
                 //Navigation
-                double t_nav_s = System.nanoTime();
                 Tuple[][] path = a_star(s_heads.get(idx), apple);
                 Tuple next = next_move(path, s_heads.get(idx), apple);
-                double t_nav_d = (System.nanoTime() - t_nav_s) / 1e6;
+
 
                 int move = calc_move(next);
                 System.out.println(move);
 
-                double t_net_d = (System.nanoTime() - t_net_s) / 1e6;
-                log(frame_count + " Net Time: " + t_net_d + " Nav Time: " + t_nav_d + " Parse Time: " + t_parse_d);
+                double frame_t = (System.nanoTime() - t_net_s) / 1e6;
+                ave_t += frame_t;
+                ave_score += s_lengths.get(idx);
+                if(frame_t >= 10.0) log("Time Spike: " + frame_t);
+                log(frame_count + " Average Time: " + ave_t/frame_count + " Average Score: " + ave_score/frame_count + " Longest: " + this.getLongest() + " Score: " + s_lengths.get(idx));
 
             }
 
@@ -150,7 +147,9 @@ public class Snake3 extends DevelopmentAgent {
 
             for(int x = start.x; x <= end.x; x++) {
                 for(int y = start.y; y <= end.y; y++) {
-                    update_map(board, barrier_c, new Tuple(x, y));
+                    Tuple b = new Tuple(x, y);
+                    update_map(board, barrier_c, b);
+                    barriers.add(b);
                 }
             }
 
@@ -164,19 +163,39 @@ public class Snake3 extends DevelopmentAgent {
         Double[][] h = new Double[b_width][b_height];
         Double[][] g = new Double[b_width][b_height];
 
-        //ArrayList<Tuple> open_set = new ArrayList<>();
-        ArrayList<Tuple> open_set = new ArrayList<>(10 * b_height * b_width);
+        for(Character[] row: board) {
+            for(Character col: row) {
+                if (col == null || col.equals(closed_c) || col.equals(open_c)) {
+                    col = empty_c;
+                }
+            }
+        }
+
+        PriorityQueue<Tuple> open_set = new PriorityQueue<>((o1, o2) -> {
+            if(
+                    read_map(f, o1) < read_map(f, o2)  ||
+                    (Objects.equals(read_map(f, o1), read_map(f, o2)) && read_map(h, o1) < read_map(h, o2))
+            ) {
+                return -1;
+            } else if(
+                    !(read_map(f, o1) < read_map(f, o2)  ||
+                    (read_map(f, o1) == read_map(f, o2) && read_map(h, o1) < read_map(h, o2)))
+            ) {
+                return 1;
+            } else {
+                return 0;
+            }
+        });
+
         update_map(f, 0.0, start);
         update_map(g, 0.0, start);
         update_map(h, 0.0, start);
         open_set.add(start);
+        open_set.add(start);
 
         while(!open_set.isEmpty()) {
+            Tuple current = open_set.poll();
 
-            Tuple current = open_set.get(0);
-            open_set.remove(0);
-
-            double t_ngen_s = System.nanoTime();
             ArrayList<Tuple> neighbours = new ArrayList<>(4);
             for (int i = 0; i < 4; i++) {
                 Tuple neighbour = new Tuple(current);
@@ -194,13 +213,17 @@ public class Snake3 extends DevelopmentAgent {
                 }
             } //Generate Neighbours
 
-            double t_ne_s = System.nanoTime();
             boolean goal_found = false;
             for(Tuple neighbour: neighbours) {
                 if( neighbour.equals(goal) ) { goal_found = true; break; }
 
-                double n_h = mhn_distance(neighbour, goal); //* (1.0 + 1/(double)(b_width + b_height));
-                //n_h *= cross_h(goal, neighbour, start) * 0.001;
+                double n_h = mhn_heuristic(neighbour, goal);
+
+                for(Tuple s: s_heads) {
+                    n_h += sigmoid(mhn_heuristic(neighbour, s), 10);
+                }
+
+
                 double n_g = read_map(g, current) + 1;
                 double n_f = n_h + n_g;
 
@@ -209,26 +232,11 @@ public class Snake3 extends DevelopmentAgent {
                     continue;
                 }
 
-                open_set.add(neighbour);
                 update_map(h, n_h, neighbour);
                 update_map(g, n_g, neighbour);
                 update_map(f, n_f, neighbour);
-                //open_set.insert(neighbour, f, h);
                 update_map(board, open_c, neighbour);
-
-                //Sort queue
-                {
-                    int i = open_set.size() - 1;
-                    while ( i > 0 && (
-                                        read_map(f, open_set.get(i - 1)) > read_map(f, open_set.get(i)) ||
-                                        read_map(h, open_set.get(i - 1)) > read_map(h, open_set.get(i)) ||
-                                        read_map(g, open_set.get(i - 1)) > read_map(g, open_set.get(i))
-                                    )
-                    ) {
-                        Collections.swap(open_set, i - 1, i);
-                        i--;
-                    }
-                }
+                open_set.add(neighbour);
 
             } //Eval Neighbours
 
@@ -253,6 +261,18 @@ public class Snake3 extends DevelopmentAgent {
         return current;
     }
 
+    private Tuple safe_move(Tuple t1) {
+        Random r = new Random();
+        Tuple random_point = new Tuple(r.nextInt(0, 50), r.nextInt(0, 50));
+
+        while(invalid_point(random_point)) {
+            random_point = new Tuple(r.nextInt(0, 50), r.nextInt(0, 50));
+        }
+
+        Tuple[][] path = a_star(s_heads.get(idx), random_point);
+        return next_move(path, s_heads.get(idx), random_point);
+    }
+
     private int calc_move(Tuple next) {
         if(next == null) { return 5; }
         else if(next.x > s_heads.get(idx).x) { return 3; }
@@ -262,7 +282,7 @@ public class Snake3 extends DevelopmentAgent {
         else { return 5; }
     }
 
-    private double mhn_distance(Tuple t1, Tuple t2) {
+    private double mhn_heuristic(Tuple t1, Tuple t2) {
         double x_abs = Math.abs(t1.x - t2.x);
         double y_abs = Math.abs(t1.y - t2.y);
 
@@ -278,13 +298,17 @@ public class Snake3 extends DevelopmentAgent {
 
         return dist;
     }
-    private double cross_h (Tuple end, Tuple curr, Tuple start) {
-        double dx1 = curr.x - end.x;
-        double dy1 = curr.y - end.y;
-        double dx2 = start.x - end.x;
-        double dy2 = start.y - end.y;
 
-        return Math.abs(dx1*dy2 - dx2 * dy1) * 0.001;
+    private double mhn_distance(Tuple t1, Tuple t2) {
+        try {
+            return Math.abs(t1.y - t2.y) + Math.abs(t1.x - t2.x);
+        } catch (NullPointerException ignored) {
+            return Double.MAX_VALUE;
+        }
+    }
+
+    private boolean can_reach(Tuple t1, Tuple t2, int steps) {
+        return mhn_distance(t1, t2) <= steps;
     }
 
     private <T> void update_map(T[][] map, T value, Tuple t) {
@@ -327,5 +351,27 @@ public class Snake3 extends DevelopmentAgent {
         } catch (NullPointerException npe) {
             return false;
         }
+    }
+
+    private boolean invalid_point_std(Tuple point) {
+        try {
+            return read_map(board, point) == barrier_c ||
+                    read_map(board, point) == zombie_c||
+                    read_map(board, point) == snake_c;
+        } catch (IndexOutOfBoundsException iobe) {
+            return true;
+        } catch (NullPointerException npe) {
+            return false;
+        }
+    }
+
+    public double sigmoid(double x) {
+        double e = Math.exp(2.0*x-6.0);
+        return -1 * e/(1.0 + e) + 1.0;
+    }
+
+    public double sigmoid(double x, double t) {
+        double e = Math.exp(2/t *x-6.0);
+        return -1 * e/(1.0 + e) + 1.0;
     }
 }

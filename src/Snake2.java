@@ -100,8 +100,7 @@ public class Snake2 extends DevelopmentAgent {
 	            //======================================================================================================
 
                 double time = (System.nanoTime() - time_s) / 1e6;
-                if(time > 10) { System.out.println("log Time: " + time); }
-                //while((System.nanoTime() - time_s) / 1e6 < 20) {}
+                if(time > 45) { System.out.println("log Time: " + time); }
         	} catch(Exception e) {
         		e.printStackTrace();
         	}
@@ -223,11 +222,6 @@ public class Snake2 extends DevelopmentAgent {
 
                 double neighbour_h = step_distance(neighbour, end);
                 double neighbour_g = g_map[current.x][current.y] + 1;
-
-                for(Tuple threat: threats) {
-                    neighbour_h +=  (b_width + b_height) / step_distance(neighbour, threat);
-                }
-
                 double neighbour_f = neighbour_h + neighbour_g;
 
                 if(board[neighbour.x][neighbour.y] == 'X' && f_map[neighbour.x][neighbour.y] < neighbour_f) { continue; }

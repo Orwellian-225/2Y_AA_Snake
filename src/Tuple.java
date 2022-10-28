@@ -46,4 +46,10 @@ public class Tuple {
     public String toString() {
         return x + "," + y;
     }
+
+    public static double mhn_distance(Tuple t1, Tuple t2) {
+        return mhn_x(t1, t2) + mhn_y(t1, t2);
+    }
+    public static double mhn_x(Tuple t1, Tuple t2) { return Math.abs(t1.x - t2.x); }
+    public static double mhn_y(Tuple t1, Tuple t2) { return Math.abs(t1.y - t2.y); }
 }

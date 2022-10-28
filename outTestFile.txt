@@ -1,0 +1,11 @@
+mew heuristic greater: 10.0
+mew heuristic lesser: 8.0
+mew snake greater: 4.0
+mew snake greater: 100.0
+mew zombie greater: 2.0
+mew zombie greater: 100.0
+mew barrier greater: 1.0
+mew barrier greater: 50.0
+average time: 0.8973830870292872
+average score: 23.135983263598327
+longest score: 50
