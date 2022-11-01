@@ -6,8 +6,7 @@ import java.util.*;
 public class Snake4 extends DevelopmentAgent {
 
     private static class ga_params {
-        public static double µ_hg = 10.0; //heuristic distance greater
-        public static double µ_hl = 8.0; //heuristic distance lesser
+        public static double µ_hx = 10.0; //heuristic multiplier
         public static double µ_sm = 4.0; //snake midpoint
         public static double µ_sx = 100.0; //snake multiplier
         public static double µ_zm = 2.0; //zombie midpoint
@@ -61,8 +60,7 @@ public class Snake4 extends DevelopmentAgent {
     public void run() {
         try {
             BufferedReader ga_input = new BufferedReader(new FileReader(ga_file));
-            ga_params.µ_hg = Double.parseDouble(ga_input.readLine().split(": ")[1]);
-            ga_params.µ_hl = Double.parseDouble(ga_input.readLine().split(": ")[1]);
+            ga_params.µ_hx = Double.parseDouble(ga_input.readLine().split(": ")[1]);
             ga_params.µ_sm = Double.parseDouble(ga_input.readLine().split(": ")[1]);
             ga_params.µ_sx = Double.parseDouble(ga_input.readLine().split(": ")[1]);
             ga_params.µ_zm = Double.parseDouble(ga_input.readLine().split(": ")[1]);
@@ -73,13 +71,13 @@ public class Snake4 extends DevelopmentAgent {
         } catch (IOException ioe) {
             ioe.printStackTrace();
         } catch (NullPointerException npe) {
-            ga_params.µ_hg = 10.0; //heuristic distance greater
-            ga_params.µ_hl = 8.0; //heuristic distance lesser
+            ga_params.µ_hx = 1.0; //heuristic distance greater
             ga_params.µ_sm = 4.0; //snake midpoint
-            ga_params.µ_sx = 100.0; //snake multiplier
-            ga_params.µ_zx = 100.0; //zombie multiplier
+            ga_params.µ_sx = 0.0; //snake multiplier
+            ga_params.µ_zm = 4.0; //Zombie Midpoint
+            ga_params.µ_zx = 0.0; //zombie multiplier
             ga_params.µ_bm = 1.0; //barrier midpoint
-            ga_params.µ_bx = 50.0; //barrier multiplier
+            ga_params.µ_bx = 0.0; //barrier multiplier
 
             //npe.printStackTrace();
         }
@@ -152,6 +150,7 @@ public class Snake4 extends DevelopmentAgent {
                     b.remove(s.get(s.size() - 1));
                     maps.update(board, s.get(s.size() - 1), game_chars.snake);
                     maps.update(invalid_walls, s.get(s.size() - 1), true);
+
                 }
 
                 maps.update(board, s.get(idx), game_chars.me);
@@ -162,29 +161,34 @@ public class Snake4 extends DevelopmentAgent {
                 next = move_apple();
                 ArrayList<Tuple> s_alts = new ArrayList<>(s);
                 s_alts.remove(idx);
-                if (next == null || array_can_reach(s_alts, next, 1) || array_can_reach(z, next, 1)) {
+
+                if (
+                        next == null ||
+                        can_reach(s.get(idx), apple, 3) && !closest_snake(s_alts, s.get(idx), apple) ||
+                        array_can_reach(s_alts, next, 1) || array_can_reach(z, next, 1)
+                ) {
                     next = move_safe(next);
                 }
 
                 System.out.println(move_direction(next));
 
                 double frame_t = (System.nanoTime() - frame_time_start) / 1e6;
+                //System.out.println("log " + frame_t);
                 ave_time += frame_t;
                 ave_score += s_lengths.get(idx);
 
                 if(frame_count == 2390) {
                     BufferedWriter ga_output = new BufferedWriter(new FileWriter(ga_file));
-                    ga_output.write("mew_heuristic_greater: " + ga_params.µ_hg + "\n");
-                    ga_output.write("mew_heuristic_lesser: " + ga_params.µ_hl + "\n");
-                    ga_output.write("mew_snake_midpoint: " + ga_params.µ_sm + "\n");
-                    ga_output.write("mew_snake_multiplier: " + ga_params.µ_sx + "\n");
-                    ga_output.write("mew_zombie_midpoint: " + ga_params.µ_zm + "\n");
-                    ga_output.write("mew_zombie_multiplier: " + ga_params.µ_zx + "\n");
-                    ga_output.write("mew_barrier_midpoint: " + ga_params.µ_bm + "\n");
-                    ga_output.write("mew_barrier_multiplier: " + ga_params.µ_bx + "\n");
-                    ga_output.write("average_time: " + ave_time / frame_count + "\n");
-                    ga_output.write("average_score: " + ave_score / frame_count + "\n");
-                    ga_output.write("longest_score: " + this.getLongest() + "\n");
+                    ga_output.write("Heuristic Multiplier: " + ga_params.µ_hx + "\n");
+                    ga_output.write("Snake Midpoint: " + ga_params.µ_sm + "\n");
+                    ga_output.write("Snake Multiplier: " + ga_params.µ_sx + "\n");
+                    ga_output.write("Zombie Midpoint: " + ga_params.µ_zm + "\n");
+                    ga_output.write("Zombie Multiplier: " + ga_params.µ_zx + "\n");
+                    ga_output.write("Barrier Midpoint: " + ga_params.µ_bm + "\n");
+                    ga_output.write("Barrier Multiplier: " + ga_params.µ_bx + "\n");
+                    ga_output.write("Time: " + ave_time / frame_count + "\n");
+                    ga_output.write("Score: " + ave_score / frame_count + "\n");
+                    ga_output.write("Longest: " + this.getLongest() + "\n");
                     ga_output.close();
                 }
             }
@@ -261,7 +265,7 @@ public class Snake4 extends DevelopmentAgent {
             for(Tuple neighbour: neighbours) {
                 if( neighbour.equals(end) ) { goal_found = true; break; }
 
-                double n_h = point_heuristic(neighbour, end);
+                double n_h = ga_params.µ_hx * target_heuristic(neighbour, start, end);
 
                 for(Tuple snake: s) {
                     n_h += sigmoid(Tuple.mhn_distance(neighbour, snake), ga_params.µ_sm, ga_params.µ_sx);
@@ -274,6 +278,7 @@ public class Snake4 extends DevelopmentAgent {
                 for(Tuple barrier: b) {
                     n_h += sigmoid(Tuple.mhn_distance(neighbour, barrier), ga_params.µ_bm, ga_params.µ_bx);
                 }
+
 
                 double n_g = maps.read(g, current) + 1;
                 double n_f = n_h + n_g;
@@ -320,25 +325,22 @@ public class Snake4 extends DevelopmentAgent {
         else { return 5; }
     }
 
-    public double point_heuristic(Tuple t1, Tuple t2) {
-        double x = Tuple.mhn_x(t1, t2);
-        double y = Tuple.mhn_y(t1, t2);
-
-        if(x > y) {
-            return ga_params.µ_hg*x + ga_params.µ_hl*y;
-        } else {
-            return ga_params.µ_hl*x + ga_params.µ_hg*y;
-        }
+    public double target_heuristic(Tuple t1, Tuple t2, Tuple target) {
+        double delta_1tx = Tuple.mhn_x(t1, target);
+        double delta_2tx = Tuple.mhn_x(t2, target);
+        double delta_1ty = Tuple.mhn_y(t1, target);
+        double delta_2ty = Tuple.mhn_y(t2, target);
+        double cross = Math.abs(delta_1tx*delta_2ty - delta_2tx*delta_1ty);
+        return cross*0.001;
     }
 
     public boolean can_reach(Tuple t1, Tuple t2, int step) { return Tuple.mhn_distance(t1, t2) <= step; }
 
     public boolean array_can_reach(ArrayList<Tuple> list, Tuple point, int step) {
-        boolean result = false;
         for(Tuple t: list) {
-            result = result || can_reach(t, point, step);
+            if(can_reach(t, point, step)) { return true; };
         }
-        return result;
+        return false;
     }
 
     public void mark_barriers(String[] turns) {
@@ -400,6 +402,21 @@ public class Snake4 extends DevelopmentAgent {
         } else {
             return true;
         }
+    }
+
+    private boolean closest_snake(ArrayList<Tuple> snakes, Tuple compare_snake, Tuple target) {
+        double compare_distance = Tuple.mhn_distance(compare_snake, target);
+
+        for(Tuple snake: snakes) {
+            if(snake.equals(compare_snake)) { continue; }
+
+            double snake_distance = Tuple.mhn_distance(snake, target);
+            if(snake_distance < compare_distance) {
+                return false;
+            }
+        }
+
+        return true;
     }
 
     public double sigmoid(double x, double midpoint, double multiplier) {
