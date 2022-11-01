@@ -13,7 +13,7 @@ public class Snake4 extends DevelopmentAgent {
         public static double µ_zm = 2.0; //zombie midpoint
         public static double µ_zx = 100.0; //zombie multiplier
         public static double µ_bm = 1.0; //barrier midpoint
-        public static double µ_bx = 50.0; //barrier multiplier
+        public static double µ_bx = 50.0; //barrier multiplier 
     }
 
     private char[][] board;
@@ -48,11 +48,12 @@ public class Snake4 extends DevelopmentAgent {
     public String ga_file;
 
     public static void main(String[] args) {
-
-
         Snake4 agent = new Snake4();
-        agent.ga_file = args[1];
-        args = Arrays.copyOfRange(args, 0, 1);
+        if(args.length > 1) { 
+        	agent.ga_file = args[1]; 
+        	args = Arrays.copyOfRange(args, 0, 1);
+        };
+        
         Snake4.start(agent, args);
     }
 
@@ -80,7 +81,7 @@ public class Snake4 extends DevelopmentAgent {
             ga_params.µ_bm = 1.0; //barrier midpoint
             ga_params.µ_bx = 50.0; //barrier multiplier
 
-            npe.printStackTrace();
+            //npe.printStackTrace();
         }
 
         try {
@@ -173,17 +174,17 @@ public class Snake4 extends DevelopmentAgent {
 
                 if(frame_count == 2390) {
                     BufferedWriter ga_output = new BufferedWriter(new FileWriter(ga_file));
-                    ga_output.write("mew heuristic greater: " + ga_params.µ_hg + "\n");
-                    ga_output.write("mew heuristic lesser: " + ga_params.µ_hl + "\n");
-                    ga_output.write("mew snake greater: " + ga_params.µ_sm + "\n");
-                    ga_output.write("mew snake greater: " + ga_params.µ_sx + "\n");
-                    ga_output.write("mew zombie greater: " + ga_params.µ_zm + "\n");
-                    ga_output.write("mew zombie greater: " + ga_params.µ_zx + "\n");
-                    ga_output.write("mew barrier greater: " + ga_params.µ_bm + "\n");
-                    ga_output.write("mew barrier greater: " + ga_params.µ_bx + "\n");
-                    ga_output.write("average time: " + ave_time / frame_count + "\n");
-                    ga_output.write("average score: " + ave_score / frame_count + "\n");
-                    ga_output.write("longest score: " + this.getLongest() + "\n");
+                    ga_output.write("mew_heuristic_greater: " + ga_params.µ_hg + "\n");
+                    ga_output.write("mew_heuristic_lesser: " + ga_params.µ_hl + "\n");
+                    ga_output.write("mew_snake_midpoint: " + ga_params.µ_sm + "\n");
+                    ga_output.write("mew_snake_multiplier: " + ga_params.µ_sx + "\n");
+                    ga_output.write("mew_zombie_midpoint: " + ga_params.µ_zm + "\n");
+                    ga_output.write("mew_zombie_multiplier: " + ga_params.µ_zx + "\n");
+                    ga_output.write("mew_barrier_midpoint: " + ga_params.µ_bm + "\n");
+                    ga_output.write("mew_barrier_multiplier: " + ga_params.µ_bx + "\n");
+                    ga_output.write("average_time: " + ave_time / frame_count + "\n");
+                    ga_output.write("average_score: " + ave_score / frame_count + "\n");
+                    ga_output.write("longest_score: " + this.getLongest() + "\n");
                     ga_output.close();
                 }
             }
