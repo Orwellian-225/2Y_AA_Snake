@@ -12,7 +12,7 @@ public class Snake4 extends DevelopmentAgent {
         public static double µ_zm = 2.0; //zombie midpoint
         public static double µ_zx = 100.0; //zombie multiplier
         public static double µ_bm = 1.0; //barrier midpoint
-        public static double µ_bx = 50.0; //barrier multiplier 
+        public static double µ_bx = 50.0; //barrier multiplier
     }
 
     private char[][] board;
@@ -48,11 +48,11 @@ public class Snake4 extends DevelopmentAgent {
 
     public static void main(String[] args) {
         Snake4 agent = new Snake4();
-        if(args.length > 1) { 
-        	agent.ga_file = args[1]; 
+        if(args.length > 1) {
+        	agent.ga_file = args[1];
         	args = Arrays.copyOfRange(args, 0, 1);
         };
-        
+
         Snake4.start(agent, args);
     }
 
@@ -178,18 +178,18 @@ public class Snake4 extends DevelopmentAgent {
                 ave_score += s_lengths.get(idx);
 
                 if(frame_count == 2390) {
-                    BufferedWriter ga_output = new BufferedWriter(new FileWriter(ga_file));
-                    ga_output.write("Heuristic Multiplier: " + ga_params.µ_hx + "\n");
-                    ga_output.write("Snake Midpoint: " + ga_params.µ_sm + "\n");
-                    ga_output.write("Snake Multiplier: " + ga_params.µ_sx + "\n");
-                    ga_output.write("Zombie Midpoint: " + ga_params.µ_zm + "\n");
-                    ga_output.write("Zombie Multiplier: " + ga_params.µ_zx + "\n");
-                    ga_output.write("Barrier Midpoint: " + ga_params.µ_bm + "\n");
-                    ga_output.write("Barrier Multiplier: " + ga_params.µ_bx + "\n");
-                    ga_output.write("Time: " + ave_time / frame_count + "\n");
-                    ga_output.write("Score: " + ave_score / frame_count + "\n");
-                    ga_output.write("Longest: " + this.getLongest() + "\n");
-                    ga_output.close();
+                        BufferedWriter ga_output = new BufferedWriter(new FileWriter(ga_file));
+                        ga_output.write("Heuristic_Multiplier: " + ga_params.µ_hx + "\n");
+                        ga_output.write("Snake_Midpoint: " + ga_params.µ_sm + "\n");
+                        ga_output.write("Snake_Multiplier: " + ga_params.µ_sx + "\n");
+                        ga_output.write("Zombie_Midpoint: " + ga_params.µ_zm + "\n");
+                        ga_output.write("Zombie_Multiplier: " + ga_params.µ_zx + "\n");
+                        ga_output.write("Barrier_Midpoint: " + ga_params.µ_bm + "\n");
+                        ga_output.write("Barrier_Multiplier: " + ga_params.µ_bx + "\n");
+                        ga_output.write("Time: " + ave_time / frame_count + "\n");
+                        ga_output.write("Score: " + ave_score / frame_count + "\n");
+                        ga_output.write("Longest: " + this.getLongest() + "\n");
+                        ga_output.close();
                 }
             }
 
@@ -265,7 +265,7 @@ public class Snake4 extends DevelopmentAgent {
             for(Tuple neighbour: neighbours) {
                 if( neighbour.equals(end) ) { goal_found = true; break; }
 
-                double n_h = ga_params.µ_hx * target_heuristic(neighbour, start, end);
+                double n_h = target_heuristic(neighbour, start, end);
 
                 for(Tuple snake: s) {
                     n_h += sigmoid(Tuple.mhn_distance(neighbour, snake), ga_params.µ_sm, ga_params.µ_sx);
@@ -278,7 +278,6 @@ public class Snake4 extends DevelopmentAgent {
                 for(Tuple barrier: b) {
                     n_h += sigmoid(Tuple.mhn_distance(neighbour, barrier), ga_params.µ_bm, ga_params.µ_bx);
                 }
-
 
                 double n_g = maps.read(g, current) + 1;
                 double n_f = n_h + n_g;
@@ -325,11 +324,11 @@ public class Snake4 extends DevelopmentAgent {
         else { return 5; }
     }
 
-    public double target_heuristic(Tuple t1, Tuple t2, Tuple target) {
-        double delta_1tx = Tuple.mhn_x(t1, target);
-        double delta_2tx = Tuple.mhn_x(t2, target);
-        double delta_1ty = Tuple.mhn_y(t1, target);
-        double delta_2ty = Tuple.mhn_y(t2, target);
+    public double target_heuristic(Tuple current, Tuple start, Tuple target) {
+        double delta_1tx = Tuple.mhn_x(current, target);
+        double delta_2tx = Tuple.mhn_x(start, target);
+        double delta_1ty = Tuple.mhn_y(current, target);
+        double delta_2ty = Tuple.mhn_y(start, target);
         double cross = Math.abs(delta_1tx*delta_2ty - delta_2tx*delta_1ty);
         return cross*0.001;
     }
