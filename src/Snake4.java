@@ -5,6 +5,7 @@ import java.util.*;
 
 public class Snake4 extends DevelopmentAgent {
 
+    /*
     private static class ga_params {
         public static double µ_hx = 10.0; //heuristic multiplier
         public static double µ_sm = 4.0; //snake midpoint
@@ -14,6 +15,7 @@ public class Snake4 extends DevelopmentAgent {
         public static double µ_bm = 1.0; //barrier midpoint
         public static double µ_bx = 50.0; //barrier multiplier
     }
+    */
 
     private char[][] board;
     private boolean[][] invalid_walls;
@@ -58,6 +60,7 @@ public class Snake4 extends DevelopmentAgent {
 
     @Override
     public void run() {
+        /*
         try {
             BufferedReader ga_input = new BufferedReader(new FileReader(ga_file));
             ga_params.µ_hx = Double.parseDouble(ga_input.readLine().split(": ")[1]);
@@ -81,6 +84,7 @@ public class Snake4 extends DevelopmentAgent {
 
             //npe.printStackTrace();
         }
+        */
 
         try {
             BufferedReader input = new BufferedReader(new InputStreamReader(System.in));
@@ -140,6 +144,7 @@ public class Snake4 extends DevelopmentAgent {
                     if (s_tokens[0].equalsIgnoreCase("dead")) {
                         if (i < idx) {
                             idx--;
+                            debug.log(String.valueOf(idx));
                         }
                         continue;
                     }
@@ -162,13 +167,20 @@ public class Snake4 extends DevelopmentAgent {
                 ArrayList<Tuple> s_alts = new ArrayList<>(s);
                 s_alts.remove(idx);
 
+                if(
+                        next == null ||
+                        array_can_reach(s_alts, apple, 15) && !closest_snake(s_alts, s.get(idx), apple)
+                ) {
+                    next = sector_move(apple);
+                }
+
                 if (
                         next == null ||
-                        can_reach(s.get(idx), apple, 3) && !closest_snake(s_alts, s.get(idx), apple) ||
                         array_can_reach(s_alts, next, 1) || array_can_reach(z, next, 1)
                 ) {
                     next = move_safe(next);
                 }
+
 
                 System.out.println(move_direction(next));
 
@@ -177,20 +189,16 @@ public class Snake4 extends DevelopmentAgent {
                 ave_time += frame_t;
                 ave_score += s_lengths.get(idx);
 
+                /*
                 if(frame_count == 2390) {
                         BufferedWriter ga_output = new BufferedWriter(new FileWriter(ga_file));
-                        ga_output.write("Heuristic_Multiplier: " + ga_params.µ_hx + "\n");
-                        ga_output.write("Snake_Midpoint: " + ga_params.µ_sm + "\n");
-                        ga_output.write("Snake_Multiplier: " + ga_params.µ_sx + "\n");
-                        ga_output.write("Zombie_Midpoint: " + ga_params.µ_zm + "\n");
-                        ga_output.write("Zombie_Multiplier: " + ga_params.µ_zx + "\n");
-                        ga_output.write("Barrier_Midpoint: " + ga_params.µ_bm + "\n");
-                        ga_output.write("Barrier_Multiplier: " + ga_params.µ_bx + "\n");
                         ga_output.write("Time: " + ave_time / frame_count + "\n");
                         ga_output.write("Score: " + ave_score / frame_count + "\n");
                         ga_output.write("Longest: " + this.getLongest() + "\n");
                         ga_output.close();
                 }
+                */
+
             }
 
         } catch (IOException ioe) {
@@ -214,6 +222,83 @@ public class Snake4 extends DevelopmentAgent {
         }
 
         return null;
+    }
+
+    public Tuple sector_move(Tuple prev_goal) {
+        Tuple sector_goal = new Tuple(0,0);
+
+        Tuple midpoint = new Tuple(game_config.width / 2, game_config.height / 2);
+
+        if(prev_goal.x < midpoint.x && prev_goal.y < midpoint.y) {
+            //Sector I -> Sector IV
+            sector_goal.x = game_config.width - 1;
+            sector_goal.y = game_config.height - 1;
+
+            while(invalid_point(sector_goal)) {
+                sector_goal.x -= 1;
+
+                if(sector_goal.x == midpoint.x) {
+                    sector_goal.y -= 1;
+                    sector_goal.x = game_config.width - 1;
+                }
+            }
+
+        } else if(prev_goal.x < game_config.width && prev_goal.y < midpoint.y) {
+            //Sector II -> Sector III
+            sector_goal.x = 0;
+            sector_goal.y = game_config.height - 1;
+
+            while(invalid_point(sector_goal)) {
+                sector_goal.x += 1;
+
+                if(sector_goal.x == midpoint.x) {
+                    sector_goal.y -= 1;
+                    sector_goal.x = 0;
+                }
+            }
+        } else if(prev_goal.x < midpoint.x && prev_goal.y < game_config.height) {
+            //Sector III -> Sector II
+            sector_goal.x = game_config.width - 1;
+            sector_goal.y = 0;
+
+            while(invalid_point(sector_goal)) {
+                sector_goal.x -= 1;
+
+                if(sector_goal.x == midpoint.x) {
+                    sector_goal.y += 1;
+                    sector_goal.x = game_config.width - 1;
+                }
+            }
+        } else if(prev_goal.x < game_config.width && prev_goal.y < game_config.height) {
+            //Sector IV -> Sector I
+            sector_goal.x = 0;
+            sector_goal.y = 0;
+
+            while(invalid_point(sector_goal)) {
+                sector_goal.x += 1;
+
+                if(sector_goal.x == midpoint.x) {
+                    sector_goal.y += 1;
+                    sector_goal.x = 0;
+                }
+            }
+        } else {
+            return null;
+        }
+
+        for(int x = 0; x < game_config.width; x++) {
+            for(int y = 0; y < game_config.height; y++) {
+                Tuple t = new Tuple(x, y);
+
+                if(maps.read(board, t) == game_chars.open || maps.read(board, t) == game_chars.close) {
+                    maps.update(board, t, game_chars.empty);
+                }
+            }
+        }
+
+        maps.update(board, s.get(idx), game_chars.me);
+
+        return tree_trace(a_star(s.get(idx), sector_goal), s.get(idx), sector_goal);
     }
 
     public Tuple[][] a_star(Tuple start, Tuple end) {
@@ -266,18 +351,6 @@ public class Snake4 extends DevelopmentAgent {
                 if( neighbour.equals(end) ) { goal_found = true; break; }
 
                 double n_h = target_heuristic(neighbour, start, end);
-
-                for(Tuple snake: s) {
-                    n_h += sigmoid(Tuple.mhn_distance(neighbour, snake), ga_params.µ_sm, ga_params.µ_sx);
-                }
-
-                for(Tuple zombie: z) {
-                    n_h += sigmoid(Tuple.mhn_distance(neighbour, zombie), ga_params.µ_zm, ga_params.µ_zx);
-                }
-
-                for(Tuple barrier: b) {
-                    n_h += sigmoid(Tuple.mhn_distance(neighbour, barrier), ga_params.µ_bm, ga_params.µ_bx);
-                }
 
                 double n_g = maps.read(g, current) + 1;
                 double n_f = n_h + n_g;
