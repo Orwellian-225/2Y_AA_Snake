@@ -19,12 +19,10 @@ public class Snake4 extends DevelopmentAgent {
 
     private char[][] board;
     private boolean[][] invalid_walls;
-    private ArrayList<Tuple> z;
-    private ArrayList<Tuple> s;
-    private ArrayList<Integer> s_lengths;
     private ArrayList<Tuple> b;
     private Tuple apple;
-    int idx;
+    Tuple my_snake;
+    int my_length;
 
     private static class game_config {
         public static int width;
@@ -104,20 +102,25 @@ public class Snake4 extends DevelopmentAgent {
             while (true) {
                 ++frame_count;
                 //Parse
-                s = new ArrayList<>(game_config.num_s);
-                s_lengths = new ArrayList<>(game_config.num_s);
-                z = new ArrayList<>(game_config.num_z);
+                ArrayList<Tuple> s = new ArrayList<>(game_config.num_s);
+                ArrayList<Integer> s_lengths = new ArrayList<>(game_config.num_s);
+                ArrayList<Tuple> z = new ArrayList<>(game_config.num_z);
                 b = new ArrayList<>(game_config.num_s * 5 + game_config.num_z * 6);
                 invalid_walls = new boolean[game_config.width][game_config.height];
                 board = new char[game_config.width][game_config.height];
 
                 String apple_in = input.readLine();
+                //debug.log(apple_in);
+                
+                if(apple_in.contains("Game Over")) { break; }
+                
                 double frame_time_start = System.nanoTime();
                 apple_in = apple_in.replace(' ', ',');
                 apple = new Tuple(apple_in);
 
                 for (int i = 0; i < game_config.num_z; i++) {
                     String zombie_in = input.readLine();
+                    //debug.log(zombie_in);
                     String[] z_tokens = zombie_in.split(" ");
                     z.add(new Tuple(z_tokens[0]));
                     mark_barriers(z_tokens);
@@ -135,17 +138,20 @@ public class Snake4 extends DevelopmentAgent {
 
                 }
 
-                idx = Integer.parseInt(input.readLine());
+                int idx = Integer.parseInt(input.readLine());
 
                 for (int i = 0; i < game_config.num_s; i++) {
                     String snake_in = input.readLine();
+                    //debug.log(snake_in);
                     String[] s_tokens = snake_in.split(" ");
 
-                    if (s_tokens[0].equalsIgnoreCase("dead")) {
-                        if (i < idx) {
-                            idx--;
-                            debug.log(String.valueOf(idx));
-                        }
+                    if (s_tokens[0].equalsIgnoreCase("dead")) { continue; }
+                    if (i == idx) {
+                        my_snake = new Tuple(s_tokens[3]);
+                        my_length = Integer.parseInt(s_tokens[1]);
+                        mark_barriers(Arrays.copyOfRange(s_tokens, 3, s_tokens.length));
+                        b.remove(my_snake);
+                        maps.update(board, my_snake, game_chars.me);
                         continue;
                     }
 
@@ -156,27 +162,24 @@ public class Snake4 extends DevelopmentAgent {
                     maps.update(board, s.get(s.size() - 1), game_chars.snake);
                     maps.update(invalid_walls, s.get(s.size() - 1), true);
 
-                }
+                }             
 
-                maps.update(board, s.get(idx), game_chars.me);
                 maps.update(board, apple, game_chars.apple);
 
                 //Make decision
                 Tuple next;
                 next = move_apple();
-                ArrayList<Tuple> s_alts = new ArrayList<>(s);
-                s_alts.remove(idx);
 
                 if(
                         next == null ||
-                        array_can_reach(s_alts, apple, 15) && !closest_snake(s_alts, s.get(idx), apple)
+                        array_can_reach(s, apple, 15) && !closest_snake(s, my_snake, apple)
                 ) {
                     next = sector_move(apple);
                 }
 
                 if (
                         next == null ||
-                        array_can_reach(s_alts, next, 1) || array_can_reach(z, next, 1)
+                        array_can_reach(s, next, 1) || array_can_reach(z, next, 1)
                 ) {
                     next = move_safe(next);
                 }
@@ -187,7 +190,7 @@ public class Snake4 extends DevelopmentAgent {
                 double frame_t = (System.nanoTime() - frame_time_start) / 1e6;
                 //System.out.println("log " + frame_t);
                 ave_time += frame_t;
-                ave_score += s_lengths.get(idx);
+                ave_score += my_length;
 
                 /*
                 if(frame_count == 2390) {
@@ -206,12 +209,10 @@ public class Snake4 extends DevelopmentAgent {
         }
     }
 
-    public Tuple move_apple() { return tree_trace(a_star(s.get(idx), apple), s.get(idx), apple); }
+    public Tuple move_apple() { return tree_trace(a_star(my_snake, apple), my_snake, apple); }
     public Tuple move_safe(Tuple prev_move) {
-        Tuple head = s.get(idx);
-
         for (int i = 0; i < 4; i++) {
-            Tuple neighbour = new Tuple(head);
+            Tuple neighbour = new Tuple(my_snake);
 
             neighbour.x += game_config.x_neighbours[i];
             neighbour.y += game_config.y_neighbours[i];
@@ -296,9 +297,9 @@ public class Snake4 extends DevelopmentAgent {
             }
         }
 
-        maps.update(board, s.get(idx), game_chars.me);
+        maps.update(board, my_snake, game_chars.me);
 
-        return tree_trace(a_star(s.get(idx), sector_goal), s.get(idx), sector_goal);
+        return tree_trace(a_star(my_snake, sector_goal), my_snake, sector_goal);
     }
 
     public Tuple[][] a_star(Tuple start, Tuple end) {
@@ -390,10 +391,10 @@ public class Snake4 extends DevelopmentAgent {
 
     public int move_direction(Tuple move) {
         if(move == null) { return 5; }
-        else if(move.x > s.get(idx).x) { return 3; }
-        else if(move.x < s.get(idx).x) { return 2; }
-        else if(move.y > s.get(idx).y) { return 1; }
-        else if(move.y < s.get(idx).y) { return 0; }
+        else if(move.x > my_snake.x) { return 3; }
+        else if(move.x < my_snake.x) { return 2; }
+        else if(move.y > my_snake.y) { return 1; }
+        else if(move.y < my_snake.y) { return 0; }
         else { return 5; }
     }
 
@@ -410,7 +411,7 @@ public class Snake4 extends DevelopmentAgent {
 
     public boolean array_can_reach(ArrayList<Tuple> list, Tuple point, int step) {
         for(Tuple t: list) {
-            if(can_reach(t, point, step)) { return true; };
+            if(can_reach(t, point, step)) { return true; }
         }
         return false;
     }
