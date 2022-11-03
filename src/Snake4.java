@@ -68,7 +68,7 @@ public class Snake4 extends DevelopmentAgent {
                 board = new char[game_config.width][game_config.height];
 
                 String apple_in = input.readLine();
-                
+
                 if(apple_in.contains("Game Over")) { break; }
 
                 apple_in = apple_in.replace(' ', ',');
@@ -98,7 +98,6 @@ public class Snake4 extends DevelopmentAgent {
 
                 for (int i = 0; i < game_config.num_s; i++) {
                     String snake_in = input.readLine();
-                    //debug.log(snake_in);
                     String[] s_tokens = snake_in.split(" ");
 
                     if (s_tokens[0].equalsIgnoreCase("dead")) { continue; }
@@ -145,6 +144,7 @@ public class Snake4 extends DevelopmentAgent {
                 }
 
 
+                //System.out.println("log " + (System.nanoTime() - frame_s) / 1e6);
                 System.out.println(move_direction(next));
 
             }
@@ -162,7 +162,7 @@ public class Snake4 extends DevelopmentAgent {
             neighbour.x += game_config.x_neighbours[i];
             neighbour.y += game_config.y_neighbours[i];
 
-            if( !invalid_point(neighbour) && ( prev_move == null || !neighbour.equals(prev_move)) ) {
+            if( !invalid_point(neighbour) && ( prev_move == null || !neighbour.equals(prev_move)) && is_move_safe(neighbour, 3)) {
                 return neighbour;
             }
         }
@@ -170,8 +170,42 @@ public class Snake4 extends DevelopmentAgent {
         return null;
     }
 
+    public boolean is_move_safe(Tuple move, int depth) {
+        Queue<Tuple> move_q = new LinkedList<>();
+        move_q.add(move);
+
+        int current_depth = 0;
+        while (!move_q.isEmpty()) {
+            Tuple current = move_q.poll();
+
+            boolean single_path_search = false;
+            ArrayList<Tuple> neighbours = new ArrayList<>(4);
+            for (int j = 0; j < 4; j++) {
+                Tuple neighbour = new Tuple(current.x + game_config.x_neighbours[j], current.y + game_config.y_neighbours[j]);
+
+                if (!invalid_point(neighbour)) {
+                    neighbours.add(neighbour);
+                }
+            }
+
+            if (neighbours.size() == 0) {
+                return false;
+            } else if(neighbours.size() == 1) {
+                //If there is only one possible route, continue checking until it opens into multiple paths again
+                //or there are no more valid neighbours
+                single_path_search = true;
+            }
+
+            move_q.addAll(neighbours);
+
+            current_depth++;
+            if(current_depth >= depth*4 && !single_path_search) { return true; }
+        }
+
+        return false;
+    }
+
     public Tuple sector_move(Tuple prev_goal, ArrayList<Tuple> objects) {
-        /*
         class sector {
             final int idx;
             int density;
@@ -180,121 +214,63 @@ public class Snake4 extends DevelopmentAgent {
                 this.idx = idx;
             }
 
-            static int convert_tuple(Tuple t, Tuple size) {
+            static int convert_tuple(Tuple t, Tuple size, int count) {
                 //noinspection IntegerDivisionInFloatingPointContext
-                return (int)Math.floor( t.x/size.x ) + (int)Math.floor( t.y/size.y );
+                return (int) (Math.floor(t.x / size.x) + Math.floor(t.y / size.y) * Math.sqrt(count));
             }
 
-            static Tuple convert_idx(int idx, int number, Tuple size) {
+            static Tuple convert_idx(int idx, Tuple size, int count) {
                 //Returns the midpoint of the sector
-                return new Tuple((idx+1) / number * size.x, idx % number * size.y);
+                return new Tuple((int) (idx % Math.sqrt(count) * size.x + (size.x/2)), (int) (Math.floor(idx / Math.sqrt(count)) * size.y) + (size.y/2));
             }
         }
 
-        int sector_count = 4;
-        Tuple sector_size = new Tuple(game_config.width / (sector_count/2) , game_config.height / (sector_count/2) );
-
-        Tuple test_md_0 = sector.convert_idx(0, sector_count, sector_size);
-        Tuple test_md_1 = sector.convert_idx(1, sector_count, sector_size);
-        Tuple test_md_2 = sector.convert_idx(2, sector_count, sector_size);
-        Tuple test_md_3 = sector.convert_idx(3, sector_count, sector_size);
-        System.out.println("log ");
-
+        int sector_count = 25;
+        Tuple sector_size = new Tuple((int)(game_config.width / (sector_count / Math.sqrt(sector_count))), (int)(game_config.height / (sector_count / Math.sqrt(sector_count))));
 
         PriorityQueue<sector> sector_pq = new PriorityQueue<>(Comparator.comparingInt(o -> o.density));
         ArrayList<sector> sector_list = new ArrayList<>(sector_count);
 
-        for(int i = 0; i < sector_count; i++) {
+        for (int i = 0; i < sector_count; i++) {
             sector_list.add(new sector(i));
         }
 
-        for(Tuple obj: objects) {
-            ++sector_list.get(sector.convert_tuple(obj, sector_size)).density;
+        for (Tuple obj : objects) {
+            ++sector_list.get(sector.convert_tuple(obj, sector_size, sector_count)).density;
         }
 
-        sector_list.remove(sector.convert_tuple(prev_goal, sector_size)); //Remove the sector containing the goal
-
+        sector_list.remove(sector.convert_tuple(prev_goal, sector_size, sector_count)); //Remove the sector containing the goal
         sector_pq.addAll(sector_list);
 
-        sector best_sector = sector_pq.poll();
-        assert best_sector != null;
-        Tuple sector_goal = sector.convert_idx(best_sector.idx, sector_count, sector_size);
-*/
-        Tuple sector_goal = new Tuple(0,0);
+        Queue<Tuple> sector_target_q = new LinkedList<>();
+        sector_target_q.add(sector.convert_idx(sector_pq.poll().idx, sector_size, sector_count));
 
-        Tuple midpoint = new Tuple(game_config.width / 2, game_config.height / 2);
+        while(invalid_point(sector_target_q.peek())) {
+            Tuple current = sector_target_q.poll();
 
-        if(prev_goal.x < midpoint.x && prev_goal.y < midpoint.y) {
-            //Sector I -> Sector IV
-            sector_goal.x = game_config.width - 1;
-            sector_goal.y = game_config.height - 1;
+            for(int i = 0; i < 4; i++) {
+                Tuple neighbour = new Tuple(current.x + game_config.x_neighbours[i], current.y + game_config.y_neighbours[i]);
 
-            while(invalid_point(sector_goal)) {
-                sector_goal.x -= 1;
-
-                if (sector_goal.x == midpoint.x) {
-                    sector_goal.y -= 1;
-                    sector_goal.x = game_config.width - 1;
+                if(0 <= neighbour.x && neighbour.x < game_config.width && 0 <= neighbour.y && neighbour.y < game_config.height) {
+                    sector_target_q.add(neighbour);
                 }
             }
-
-
-        } else if(prev_goal.x < game_config.width && prev_goal.y < midpoint.y) {
-            //Sector II -> Sector III
-            sector_goal.x = 0;
-            sector_goal.y = game_config.height - 1;
-
-            while(invalid_point(sector_goal)) {
-                sector_goal.x += 1;
-
-                if(sector_goal.x == midpoint.x) {
-                    sector_goal.y -= 1;
-                    sector_goal.x = 0;
-                }
-            }
-        } else if(prev_goal.x < midpoint.x && prev_goal.y < game_config.height) {
-            //Sector III -> Sector II
-            sector_goal.x = game_config.width - 1;
-            sector_goal.y = 0;
-
-            while(invalid_point(sector_goal)) {
-                sector_goal.x -= 1;
-
-                if(sector_goal.x == midpoint.x) {
-                    sector_goal.y += 1;
-                    sector_goal.x = game_config.width - 1;
-                }
-            }
-        } else if(prev_goal.x < game_config.width && prev_goal.y < game_config.height) {
-            //Sector IV -> Sector I
-            sector_goal.x = 0;
-            sector_goal.y = 0;
-
-            while(invalid_point(sector_goal)) {
-                sector_goal.x += 1;
-
-                if(sector_goal.x == midpoint.x) {
-                    sector_goal.y += 1;
-                    sector_goal.x = 0;
-                }
-            }
-        } else {
-            return null;
         }
 
+        Tuple sector_goal = sector_target_q.poll();
 
-
-        for(int x = 0; x < game_config.width; x++) {
-            for(int y = 0; y < game_config.height; y++) {
+        for (int x = 0; x < game_config.width; x++) {
+            for (int y = 0; y < game_config.height; y++) {
                 Tuple t = new Tuple(x, y);
 
-                if(maps.read(board, t) == game_chars.open || maps.read(board, t) == game_chars.close) {
+                if (maps.read(board, t) == game_chars.open || maps.read(board, t) == game_chars.close) {
                     maps.update(board, t, game_chars.empty);
                 }
             }
         }
 
         maps.update(board, my_snake, game_chars.me);
+
         return tree_trace(a_star(my_snake, sector_goal), my_snake, sector_goal);
     }
 
